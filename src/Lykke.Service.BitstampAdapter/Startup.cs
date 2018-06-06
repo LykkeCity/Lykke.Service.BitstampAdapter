@@ -1,5 +1,4 @@
-using System;
-using Autofac;
+﻿using System;
 using Lykke.Sdk;
 using Lykke.Service.BitstampAdapter.Settings;
 using Lykke.SettingsReader;
