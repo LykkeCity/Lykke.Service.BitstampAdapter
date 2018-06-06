@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Autofac;
 using Lykke.Sdk;
 using Lykke.Service.BitstampAdapter.Settings;
@@ -14,11 +14,8 @@ namespace Lykke.Service.BitstampAdapter
         {                                   
             return services.BuildServiceProvider<AppSettings>(options =>
             {
-                // options.ApiVersion = "v1";
                 options.ApiTitle = "BitstampAdapter API";
-                // options.LogsConnectionStringFactory = ctx => ctx.Resolve<IReloadingManager<AppSettings>>().ConnectionString(x => x.BitstampAdapterService.Db.LogsConnString);
-                options.LogsConnectionStringFactory = ctx => ctx.Nested(x => x.BitstampAdapterService.Db.LogsConnString);
-                options.LogsTableName = "BitstampAdapterLog";
+                options.Logs = options.Logs = ("BitstampAdapterLog", ctx => ctx.BitstampAdapterService.Db.LogsConnString);
             });
         }
 
