@@ -26,6 +26,7 @@ namespace Lykke.Service.BitstampAdapter.Modules
                 .As<IHostedService>()
                 .WithParameter(new TypedParameter(typeof(OrderbookSettings), settings.Orderbooks))
                 .WithParameter(new TypedParameter(typeof(RabbitMqSettings), settings.RabbitMq))
+                .WithParameter(new TypedParameter(typeof(InstrumentSettings), settings.Instruments))
                 .SingleInstance();
         }
     }

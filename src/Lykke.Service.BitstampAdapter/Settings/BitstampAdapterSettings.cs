@@ -1,4 +1,5 @@
-﻿using JetBrains.Annotations;
+﻿using System.Collections.Generic;
+using JetBrains.Annotations;
 using Lykke.Service.BitstampAdapter.Services.Settings;
 
 namespace Lykke.Service.BitstampAdapter.Settings
@@ -9,6 +10,7 @@ namespace Lykke.Service.BitstampAdapter.Settings
         public DbSettings Db { get; set; }
         public OrderbookSettings Orderbooks { get; set; }
         public RabbitMqSettings RabbitMq { get; set; }
+        public InstrumentSettings Instruments { get; set; }
     }
-    
+
 }

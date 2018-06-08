@@ -24,23 +24,30 @@ namespace Lykke.Service.BitstampAdapter.Services
         private readonly OrderbookSettings _orderbookSettings;
         private readonly RabbitMqSettings _rmqSettings;
         private IDisposable _subscription;
+        private readonly IReadOnlyCollection<string> _instruments;
         private const string BitstampName = "bitstamp";
 
         public OrderbookPublishingService(
             ILog log,
             OrderbookSettings orderbookSettings,
-            RabbitMqSettings rmqSettings)
+            RabbitMqSettings rmqSettings,
+            InstrumentSettings instrumentSettings)
         {
             _log = log;
             _orderbookSettings = orderbookSettings;
             _rmqSettings = rmqSettings;
+            _instruments = instrumentSettings.Orderbooks;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+            _log.WriteInfo(nameof(OrderbookPublishingService), "",
+                $"Listening orderbook for instruments: {string.Join(", ", _instruments)}, " +
+                $"you can find supported instruments in documentation: https://www.bitstamp.net/websocket/");
+
             var orderbooks = Observable.Using(
                     () => new DisposablePusher("de504dc5763aeef9ff52", _log),
-                    p => BitstampInstruments.All.Select(i => ProcessOrderBooks(p, i)).Merge())
+                    p => _instruments.Select(i => ProcessOrderBooks(p, i)).Merge())
                 .OnlyWithPositiveSpread()
                 .Publish()
                 .RefCount();
@@ -173,27 +180,5 @@ namespace Lykke.Service.BitstampAdapter.Services
                     ch?.UnbindAll();
                 });
         }
-    }
-
-     public static class BitstampInstruments
-    {
-        public static readonly IReadOnlyCollection<string> All = new[]
-        {
-            "btcusd",
-            "btceur",
-            "eurusd",
-            "xrpusd",
-            "xrpeur",
-            "xrpbtc",
-            "ltcusd",
-            "ltceur",
-            "ltcbtc",
-            "ethusd",
-            "etheur",
-            "ethbtc",
-            "bchusd",
-            "bcheur",
-            "bchbtc"
-        };
     }
 }
