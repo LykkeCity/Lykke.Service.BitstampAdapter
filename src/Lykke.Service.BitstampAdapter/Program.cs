@@ -25,7 +25,7 @@ namespace Lykke.Service.BitstampAdapter
                 var host = new WebHostBuilder()
                     .UseKestrel()
                     .UseUrls("http://*:5000")
-                    .UseContentRoot(Directory.GetCurrentDirectory())                              
+                    .UseContentRoot(Directory.GetCurrentDirectory())
                     .UseStartup<Startup>()
                     .UseApplicationInsights()
                     .Build();

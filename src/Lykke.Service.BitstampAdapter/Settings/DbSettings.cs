@@ -6,5 +6,8 @@ namespace Lykke.Service.BitstampAdapter.Settings
     {
         [AzureTableCheck]
         public string LogsConnString { get; set; }
+
+        [AzureTableCheck]
+        public string OrdersConnString { get; set; }
     }
 }

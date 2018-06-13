@@ -22,18 +22,22 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Lykke.Sdk" Version="1.0.5" />
-    <PackageReference Include="Microsoft.AspNetCore" Version="2.1.0" />
-    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.1.0" />
+    <PackageReference Include="Lykke.Sdk" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore" Version="2.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.1.1" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.5.0" />
   </ItemGroup>
   <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\shared\Lykke.Common.ExchangeAdapter.Server\Lykke.Common.ExchangeAdapter.Server.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.AzureRepositories\Lykke.Service.BitstampAdapter.AzureRepositories.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Core\Lykke.Service.BitstampAdapter.Core.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Services\Lykke.Service.BitstampAdapter.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Middleware" />
   </ItemGroup>
   <Target Name="PrepublishScript" BeforeTargets="PrepareForPublish">
     <ItemGroup>

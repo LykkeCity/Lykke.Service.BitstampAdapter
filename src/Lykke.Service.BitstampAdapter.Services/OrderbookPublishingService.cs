@@ -43,7 +43,7 @@ namespace Lykke.Service.BitstampAdapter.Services
         {
             _log.WriteInfo(nameof(OrderbookPublishingService), "",
                 $"Listening orderbook for instruments: {string.Join(", ", _instruments)}, " +
-                $"you can find supported instruments in documentation: https://www.bitstamp.net/websocket/");
+                "you can find supported instruments in documentation: https://www.bitstamp.net/websocket/");
 
             var orderbooks = Observable.Using(
                     () => new DisposablePusher("de504dc5763aeef9ff52", _log),
@@ -64,15 +64,15 @@ namespace Lykke.Service.BitstampAdapter.Services
                     .Do(x => _log.WriteInfo(
                         nameof(OrderbookPublishingService),
                         "orderbooks",
-                        $"Received {x} events for last {window} from websocket"))
+                        $"Received {x} events in last {window} from websocket"))
                     .Select(_ => Unit.Default);
 
                 var ob = orderbooks
                     .DistinctEveryInstrument(x => x.Asset)
                     .ThrottleEachInstrument(x => x.Asset, _orderbookSettings.MaxEventPerSecondByInstrument)
                     .PublishToRmq(_rmqSettings.OrderBooks, _log)
-                    .ReportErrors(_log).
-                    RetryWithBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5))
+                    .ReportErrors(_log)
+                    .RetryWithBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5))
                     .Publish()
                     .RefCount();
 
@@ -82,7 +82,7 @@ namespace Lykke.Service.BitstampAdapter.Services
                     .Do(x => _log.WriteInfo(
                         nameof(OrderbookPublishingService),
                         "orderbooks",
-                        $"Published {x} events for last {window} to RMQ"))
+                        $"Published {x} events in last {window} to RMQ"))
                     .Select(_ => Unit.Default);
 
                 workers.Add(ob);
@@ -147,7 +147,7 @@ namespace Lykke.Service.BitstampAdapter.Services
 
             _log.WriteInfo(nameof(DisposablePusher), "", $"Connecting to application {pusherKey}...");
             _client.Connect();
-            _log.WriteInfo(nameof(DisposablePusher), "", $"Connected");
+            _log.WriteInfo(nameof(DisposablePusher), "", "Connected");
         }
 
         public void Dispose()

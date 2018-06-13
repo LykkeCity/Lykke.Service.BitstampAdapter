@@ -1,19 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <AssemblyName>Lykke.Service.BitstampAdapter.AzureRepositories</AssemblyName>
-    <RootNamespace>Lykke.Service.BitstampAdapter.AzureRepositories</RootNamespace>
-    <Version>1.0.0</Version>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Lykke.AzureStorage" Version="8.5.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Core\Lykke.Service.BitstampAdapter.Core.csproj" />
-  </ItemGroup>
   <ItemGroup>
     <Reference Include="Lykke.Common.ExchangeAdapter, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\..\..\..\..\.nuget\packages\lykke.common.exchangeadapter\2.0.0\lib\netcoreapp2.1\Lykke.Common.ExchangeAdapter.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Lykke.Sdk" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore" Version="2.1.1" />
   </ItemGroup>
 </Project>
