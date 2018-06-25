@@ -57,7 +57,7 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl
                     request.Content = new FormUrlEncodedContent(original.Concat(authParams));
 
                     return await base.SendAsync(request, cancellationToken);
-                });
+                }, LockKind.EpochMilliseconds);
             }
             else
             {
