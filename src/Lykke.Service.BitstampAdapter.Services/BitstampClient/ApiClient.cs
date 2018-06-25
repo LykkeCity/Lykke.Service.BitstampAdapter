@@ -32,11 +32,19 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             string internalApiKey = "n/a")
         {
             InternalApiKey = internalApiKey;
-            _client = new HttpClient(new AuthenticationHandler(
-                credentials.UserId,
-                credentials.Key,
-                credentials.Secret,
-                new LoggingHandler(log, new HttpClientHandler())))
+
+            HttpMessageHandler mainHandler = new LoggingHandler(log, new HttpClientHandler());
+
+            if (credentials != null)
+            {
+                mainHandler = new AuthenticationHandler(
+                    credentials.UserId,
+                    credentials.Key,
+                    credentials.Secret,
+                    mainHandler);
+            }
+
+            _client = new HttpClient(mainHandler)
             {
                 BaseAddress = new Uri("https://www.bitstamp.net/api/v2/")
             };

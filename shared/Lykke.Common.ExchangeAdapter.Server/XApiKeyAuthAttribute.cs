@@ -20,7 +20,7 @@ namespace Lykke.Common.ExchangeAdapter.Server
 
             if (!Credentials.TryGetValue(h[0], out var creds))
             {
-                context.Result = new BadRequestObjectResult($"No {ClientTokenMiddleware.ClientTokenHeader} header");
+                context.Result = new BadRequestObjectResult($"Uknown {ClientTokenMiddleware.ClientTokenHeader}");
                 return;
             }
 

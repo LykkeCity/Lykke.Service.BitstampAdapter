@@ -34,10 +34,10 @@ namespace Lykke.Service.BitstampAdapter
             var appName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name;
             app.UseLykkeMiddleware(appName, options.DefaultErrorHandler);
 
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
+//            if (env.IsDevelopment())
+//            {
+//                app.UseDeveloperExceptionPage();
+//            }
 
             var log = app.ApplicationServices.GetService<ILog>();
 

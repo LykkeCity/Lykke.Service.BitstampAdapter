@@ -36,9 +36,6 @@
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Core\Lykke.Service.BitstampAdapter.Core.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Services\Lykke.Service.BitstampAdapter.Services.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Middleware" />
-  </ItemGroup>
   <Target Name="PrepublishScript" BeforeTargets="PrepareForPublish">
     <ItemGroup>
       <DocFile Include="$(OutputPath)$(AssemblyName).xml" />
