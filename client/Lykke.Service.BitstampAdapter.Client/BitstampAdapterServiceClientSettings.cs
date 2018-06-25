@@ -1,5 +1,3 @@
-using System;
-
 namespace Lykke.Service.BitstampAdapter.Client 
 {
     public class BitstampAdapterServiceClientSettings 

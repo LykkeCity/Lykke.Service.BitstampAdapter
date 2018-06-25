@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
-using Lykke.Sdk;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.PlatformAbstractions;
 
@@ -13,6 +12,8 @@ namespace Lykke.Service.BitstampAdapter
 
         public static async Task Main(string[] args)
         {
+            AppDomain.CurrentDomain.UnhandledException += HandleUnhandledExceptions;
+
             Console.WriteLine($"{PlatformServices.Default.Application.ApplicationName} version {PlatformServices.Default.Application.ApplicationVersion}");
 #if DEBUG
             Console.WriteLine("Is DEBUG");
@@ -51,6 +52,12 @@ namespace Lykke.Service.BitstampAdapter
             }
 
             Console.WriteLine("Terminated");
+        }
+
+        private static void HandleUnhandledExceptions(object sender, UnhandledExceptionEventArgs e)
+        {
+            Console.WriteLine("FATAL!");
+            Console.WriteLine(e.ExceptionObject);
         }
     }
 }
