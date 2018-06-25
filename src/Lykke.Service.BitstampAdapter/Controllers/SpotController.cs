@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.Server;
+using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Service.BitstampAdapter.AzureRepositories;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
@@ -119,9 +120,18 @@ namespace Lykke.Service.BitstampAdapter.Controllers
         }
 
         public override async Task<CancelLimitOrderResponse> CancelLimitOrderAsync(
-            [FromBody]CancelLimitOrderRequest request)
+            [FromBody] CancelLimitOrderRequest request)
         {
-            var response = await Api.CancelOrder(request.OrderId);
+            CancelOrderResponse response;
+
+            try
+            {
+                response = await Api.CancelOrder(request.OrderId);
+            }
+            catch (OrderNotFoundException)
+            {
+                return new CancelLimitOrderResponse {OrderId = request.OrderId};
+            }
 
             await _limitOrderRepository.UpdateStatus(response.Id, OrderStatus.Canceled);
 

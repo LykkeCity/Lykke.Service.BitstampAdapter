@@ -12,10 +12,11 @@ TODO
     [x] Create Limit Order
         [x] Buy
         [x] Sell
-    [ ] Parse errors and return proper codes
+    [x] Parse errors and return proper codes
     [x] Get wallets
     [x] Cancel order
+        [x] Duplicate cancel request shouldn't fail
     [x] Get order
         [x] Implement intermediate storage
-        [ ] Parse transactions 
+        [x] Parse transactions 
 ```
