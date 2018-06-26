@@ -36,25 +36,25 @@ namespace Lykke.Common.ExchangeAdapter.Server
         }
 
         [HttpPost("createLimitOrder")]
-        public virtual Task<OrderIdResponse> CreateLimitOrderAsync(LimitOrderRequest request)
+        public virtual Task<OrderIdResponse> CreateLimitOrderAsync([FromBody]LimitOrderRequest request)
         {
             throw new System.NotImplementedException();
         }
 
         [HttpPost("cancelOrder")]
-        public virtual Task<CancelLimitOrderResponse> CancelLimitOrderAsync(CancelLimitOrderRequest request)
+        public virtual Task<CancelLimitOrderResponse> CancelLimitOrderAsync([FromBody]CancelLimitOrderRequest request)
         {
             throw new System.NotImplementedException();
         }
 
         [HttpPost("replaceLimitOrder")]
-        public virtual Task<OrderIdResponse> ReplaceLimitOrderAsync(ReplaceLimitOrderRequest request)
+        public virtual Task<OrderIdResponse> ReplaceLimitOrderAsync([FromBody]ReplaceLimitOrderRequest request)
         {
             throw new System.NotImplementedException();
         }
 
         [HttpPost("createMarketOrder")]
-        public virtual Task<OrderIdResponse> CreateMarketOrderAsync(MarketOrderRequest request)
+        public virtual Task<OrderIdResponse> CreateMarketOrderAsync([FromBody]MarketOrderRequest request)
         {
             throw new System.NotImplementedException();
         }
