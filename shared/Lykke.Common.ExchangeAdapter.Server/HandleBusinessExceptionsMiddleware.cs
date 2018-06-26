@@ -26,17 +26,17 @@ namespace Lykke.Common.ExchangeAdapter.Server
             {
                 MakeBadRequest(httpContext, "notFound");
             }
-            catch (VolumeTooSmallException)
+            catch (VolumeTooSmallException ex)
             {
-                MakeBadRequest(httpContext, "volumeTooSmall");
+                MakeBadRequest(httpContext, $"volumeTooSmall: {ex.Message}");
+            }
+            catch (InvalidOrderPriceException ex)
+            {
+                MakeBadRequest(httpContext, $"priceError: {ex.Message}");
             }
             catch (InvalidOrderIdException)
             {
                 MakeBadRequest(httpContext, "orderIdFormat");
-            }
-            catch (NoBalanceException)
-            {
-                MakeBadRequest(httpContext, "notEnoughBalance");
             }
             catch (InsufficientBalanceException)
             {

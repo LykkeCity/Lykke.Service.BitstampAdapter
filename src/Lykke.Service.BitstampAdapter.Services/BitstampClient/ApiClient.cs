@@ -11,6 +11,7 @@ using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
+using Microsoft.AspNetCore.Connections.Features;
 using Newtonsoft.Json.Linq;
 
 namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
@@ -134,6 +135,11 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
                         throw new VolumeTooSmallException(errorMessage);
                     }
 
+                    if (CheckOrderPriceError(errorMessage))
+                    {
+                        throw new InvalidOrderPriceException(errorMessage);
+                    }
+
                     throw new BitstampApiException(errorMessage);
                 }
 
@@ -145,9 +151,25 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             }
         }
 
+        private static bool CheckOrderPriceError(string errorMessage)
+        {
+            var errors = new[]
+            {
+                "Ensure that there are no more than",
+                "Price is more than"
+            };
+
+            return errors.Any(errorMessage.StartsWith);
+        }
+
         private static bool CheckOrderSizeError(string errorMessage)
         {
-            return errorMessage.StartsWith("Minimum order size is");
+            var errors = new[]
+            {
+                "Minimum order size is"
+            };
+
+            return errors.Any(errorMessage.StartsWith);
         }
 
         private static bool IsNotFoundError(string errorMessage)
@@ -187,7 +209,7 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
                             var msg = err.ToString();
 
                             if (!string.IsNullOrWhiteSpace(msg))
-                                yield return s.Key != "__all__"? $"{s.Key}: {msg}" : msg;
+                                yield return msg;
                         }
                     }
                 }
