@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.Server;
@@ -138,6 +139,13 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             return new CancelLimitOrderResponse {OrderId = response.Id};
         }
 
+        public override async Task<GetOrdersHistoryResponse> GetOrdersHistoryAsync()
+        {
+            var orders = await _limitOrderRepository.GetAll().Take(500).ToArray();
+
+            return new GetOrdersHistoryResponse { Orders = orders.Select(FromLimitOrder).ToArray() };
+        }
+
         public override async Task<OrderModel> LimitOrderStatusAsync(string orderId)
         {
             var response = await Api.OrderStatus(orderId);
@@ -153,21 +161,7 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             ILimitOrder order,
             IEnumerable<JObject> transactions)
         {
-            var (s1, s2) = GetSymbols(order.Instrument);
-
-            string resultCurrency = s1;
-
-//            switch (order.TradeType)
-//            {
-//                case TradeType.Buy:
-//                    resultCurrency = s1;
-//                    break;
-//                case TradeType.Sell:
-//                    resultCurrency = s2;
-//                    break;
-//                default:
-//                    throw new ArgumentOutOfRangeException();
-//            }
+            var (cryptoCurrency, _) = GetSymbols(order.Instrument);
 
             return transactions.Select(tr =>
             {
@@ -178,14 +172,14 @@ namespace Lykke.Service.BitstampAdapter.Controllers
                     dict[kv.Key] = kv.Value;
                 }
 
-                if (!dict.ContainsKey(resultCurrency))
+                if (!dict.ContainsKey(cryptoCurrency))
                 {
-                    throw new InvalidOperationException($"Result currency not found in response: {resultCurrency}");
+                    throw new InvalidOperationException($"Result currency not found in response: {cryptoCurrency}");
                 }
 
                 return new OrderTransaction
                 {
-                    Amount = dict[resultCurrency].Value<decimal>(),
+                    Amount = dict[cryptoCurrency].Value<decimal>(),
                     Price = dict["price"].Value<decimal>()
                 };
             }).ToArray();

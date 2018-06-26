@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Lykke.Common.ExchangeAdapter.Server.Fails;
@@ -45,14 +46,21 @@ namespace Lykke.Common.ExchangeAdapter.Server
             {
                 MakeBadRequest(httpContext, "instrumentIsNotSupported");
             }
+            catch (NotImplementedException)
+            {
+                MakeBadRequest(httpContext, "notImplemented", HttpStatusCode.NotImplemented);
+            }
         }
 
-        private static void MakeBadRequest(HttpContext httpContext, string error)
+        private static void MakeBadRequest(
+            HttpContext httpContext,
+            string error,
+            HttpStatusCode code = HttpStatusCode.BadRequest)
         {
             using (var body = new MemoryStream(Encoding.UTF8.GetBytes(error)))
             {
                 httpContext.Response.ContentType = "text/plain";
-                httpContext.Response.StatusCode = 400;
+                httpContext.Response.StatusCode = (int)code;
                 body.CopyTo(httpContext.Response.Body);
             }
         }

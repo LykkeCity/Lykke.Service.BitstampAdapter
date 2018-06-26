@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 using AzureStorage;
+using Lykke.AzureStorage.Tables.Paging;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Service.BitstampAdapter.AzureRepositories.Entities;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.WindowsAzure.Storage.Table;
 
 namespace Lykke.Service.BitstampAdapter.AzureRepositories
 {
@@ -82,6 +87,31 @@ namespace Lykke.Service.BitstampAdapter.AzureRepositories
 
                     return order;
                 });
+        }
+
+        public IObservable<ILimitOrder> GetAll()
+        {
+            return Observable.Create<ILimitOrder>(async (obs, ct) =>
+            {
+                var info = new PagingInfo {ElementCount = 100};
+
+                while (!ct.IsCancellationRequested)
+                {
+                    var result = await _storage.ExecuteQueryWithPaginationAsync(
+                        new TableQuery<LimitOrder>(), info);
+
+                    foreach (var r in result)
+                    {
+                        obs.OnNext(r);
+                    }
+
+                    info = result.PagingInfo;
+
+                    if (info.NextPage == null) break;
+                }
+
+                obs.OnCompleted();
+            });
         }
     }
 
