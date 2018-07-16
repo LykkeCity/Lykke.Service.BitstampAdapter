@@ -140,6 +140,11 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
                         throw new InvalidOrderPriceException(errorMessage);
                     }
 
+                    if (CheckOrderIdError(errorMessage))
+                    {
+                        throw new InvalidOrderIdException();
+                    }
+
                     throw new BitstampApiException(errorMessage);
                 }
 
@@ -149,6 +154,11 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             {
                 return json;
             }
+        }
+
+        private static bool CheckOrderIdError(string errorMessage)
+        {
+            return errorMessage.StartsWith("Invalid order id", StringComparison.InvariantCultureIgnoreCase);
         }
 
         private static bool CheckOrderPriceError(string errorMessage)
