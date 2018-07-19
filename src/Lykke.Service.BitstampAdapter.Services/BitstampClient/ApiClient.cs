@@ -6,12 +6,11 @@ using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Common.Log;
 using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
+using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
-using Microsoft.AspNetCore.Connections.Features;
 using Newtonsoft.Json.Linq;
 
 namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
@@ -29,9 +28,11 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
 
         public ApiClient(
             IApiCredentials credentials,
-            ILog log,
+            ILogFactory logFactory,
             string internalApiKey = "n/a")
         {
+            var log = logFactory.CreateLog(this);
+
             InternalApiKey = internalApiKey;
 
             HttpMessageHandler mainHandler = new LoggingHandler(log, new HttpClientHandler());
@@ -111,7 +112,12 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
 
         private static async Task<JToken> ReadAsJson(HttpResponseMessage msg)
         {
-            msg.EnsureSuccessStatusCode();
+
+            if (msg.StatusCode != HttpStatusCode.Forbidden)
+            {
+                msg.EnsureSuccessStatusCode();
+            }
+
             var json = await msg.Content.ReadAsAsync<JToken>();
 
             if (json is JObject obj)
@@ -120,6 +126,11 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
 
                 if (errorMessage != null)
                 {
+                    if (msg.StatusCode == HttpStatusCode.Forbidden)
+                    {
+                        throw new BitstampApiException(errorMessage);
+                    }
+
                     if (IsNotFoundError(errorMessage))
                     {
                         throw new OrderNotFoundException(errorMessage);
@@ -184,7 +195,7 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
 
         private static bool IsNotFoundError(string errorMessage)
         {
-            return string.Equals("Order not found", errorMessage, StringComparison.InvariantCultureIgnoreCase);
+            return errorMessage.StartsWith("Order not found", StringComparison.InvariantCultureIgnoreCase);
         }
 
         private static bool IsBalanceError(string errorMessage)

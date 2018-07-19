@@ -1,7 +1,7 @@
 ﻿using Autofac;
 using AzureStorage;
 using AzureStorage.Tables;
-using Common.Log;
+using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.AzureRepositories;
 using Lykke.Service.BitstampAdapter.AzureRepositories.Entities;
 using Lykke.Service.BitstampAdapter.Services;
@@ -15,12 +15,10 @@ namespace Lykke.Service.BitstampAdapter.Modules
     public class ServiceModule : Module
     {
         private readonly IReloadingManager<AppSettings> _appSettings;
-        private readonly ILog _log;
 
-        public ServiceModule(IReloadingManager<AppSettings> appSettings, ILog log)
+        public ServiceModule(IReloadingManager<AppSettings> appSettings)
         {
             _appSettings = appSettings;
-            _log = log;
         }
 
         protected override void Load(ContainerBuilder builder)
@@ -31,21 +29,22 @@ namespace Lykke.Service.BitstampAdapter.Modules
 
             builder.RegisterInstance(settings).AsSelf();
 
-#if (!DEBUG)
             builder.RegisterType<OrderbookPublishingService>()
                 .As<IHostedService>()
                 .WithParameter(new TypedParameter(typeof(OrderbookSettings), settings.Orderbooks))
                 .WithParameter(new TypedParameter(typeof(RabbitMqSettings), settings.RabbitMq))
                 .WithParameter(new TypedParameter(typeof(InstrumentSettings), settings.Instruments))
                 .SingleInstance();
-#endif
 
-            builder.RegisterInstance(
-                    new LimitOrderRepository(
-                        AzureTableStorage<LimitOrder>.Create(
-                            _appSettings.ConnectionString(x => x.BitstampAdapterService.Db.OrdersConnString),
-                            "BitstampLimitOrders",
-                            _log)))
+            builder.Register(ctx =>
+                    AzureTableStorage<LimitOrder>.Create(
+                        _appSettings.ConnectionString(x => x.BitstampAdapterService.Db.OrdersConnString),
+                        "BitstampLimitOrders",
+                        ctx.Resolve<ILogFactory>()))
+                .As<INoSQLTableStorage<LimitOrder>>()
+                .SingleInstance();
+
+            builder.RegisterType<LimitOrderRepository>()
                 .SingleInstance()
                 .AsSelf();
         }

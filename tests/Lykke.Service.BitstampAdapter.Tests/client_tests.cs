@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Common.Log;
-using Common.PasswordTools;
+using Lykke.Logs;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
 using Newtonsoft.Json;
@@ -22,7 +22,7 @@ namespace Lykke.Service.BitstampAdapter.Tests
                 ""
             );
 
-            var client = new ApiClient(apiCredentials, new LogToConsole());
+            var client = new ApiClient(apiCredentials, EmptyLogFactory.Instance);
 
             Console.WriteLine(JsonConvert.SerializeObject(await client.OrderStatus("1704450591")));
         }

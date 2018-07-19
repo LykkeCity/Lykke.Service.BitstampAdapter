@@ -2,16 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Common.Log;
 using Lykke.Common.ApiLibrary.Middleware;
-using Lykke.MonitoringServiceApiCaller;
-using Lykke.Sdk;
-using Lykke.Sdk.Settings;
-using Lykke.SettingsReader;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Lykke.Service.BitstampAdapter
 {

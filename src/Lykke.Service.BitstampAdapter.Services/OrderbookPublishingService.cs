@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Common.ExchangeAdapter;
 using Lykke.Common.ExchangeAdapter.Contracts;
+using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Services.Settings;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json.Linq;
@@ -28,12 +29,12 @@ namespace Lykke.Service.BitstampAdapter.Services
         private const string BitstampName = "bitstamp";
 
         public OrderbookPublishingService(
-            ILog log,
+            ILogFactory logFactory,
             OrderbookSettings orderbookSettings,
             RabbitMqSettings rmqSettings,
             InstrumentSettings instrumentSettings)
         {
-            _log = log;
+            _log = logFactory.CreateLog(this);
             _orderbookSettings = orderbookSettings;
             _rmqSettings = rmqSettings;
             _instruments = instrumentSettings.Orderbooks;

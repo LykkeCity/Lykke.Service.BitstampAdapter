@@ -11,7 +11,6 @@ using Lykke.Service.BitstampAdapter.AzureRepositories;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Newtonsoft.Json.Linq;
 
 namespace Lykke.Service.BitstampAdapter.Controllers

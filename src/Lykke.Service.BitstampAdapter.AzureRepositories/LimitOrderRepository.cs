@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -9,7 +8,6 @@ using Lykke.AzureStorage.Tables.Paging;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Service.BitstampAdapter.AzureRepositories.Entities;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.WindowsAzure.Storage.Table;
 
 namespace Lykke.Service.BitstampAdapter.AzureRepositories

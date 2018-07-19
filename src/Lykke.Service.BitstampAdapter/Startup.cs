@@ -1,34 +1,64 @@
 ﻿using System;
 using System.Linq;
-using System.Security.Principal;
-using Common.Log;
+using JetBrains.Annotations;
 using Lykke.Common.ExchangeAdapter.Server;
+using Lykke.Common.Log;
 using Lykke.Sdk;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Settings;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lykke.Service.BitstampAdapter
 {
-    public sealed class Startup : LykkeStartup<AppSettings>
+    [UsedImplicitly]
+    public class Startup
     {
-        protected override void ConfigureImpl(IApplicationBuilder app)
+        private readonly LykkeSwaggerOptions _swaggerOptions = new LykkeSwaggerOptions
         {
-            var settings = app.ApplicationServices.GetService<BitstampAdapterSettings>();
-            XApiKeyAuthAttribute.Credentials = settings.Clients.ToDictionary(x => x.InternalApiKey, x => (object) x);
+            ApiTitle = "BitstampLykkeService API"
+        };
 
-            var log = app.ApplicationServices.GetService<ILog>();
+        [UsedImplicitly]
+        public IServiceProvider ConfigureServices(IServiceCollection services)
+        {
+            return services.BuildServiceProvider<AppSettings>(options =>
+            {
+                options.Swagger = swagger => swagger.ConfigureSwagger();
+                options.SwaggerOptions = _swaggerOptions;
 
-            app.UseAuthenticationMiddleware(token => new ApiClient(GetCredentials(settings, token), log, token));
-            app.UseHandleBusinessExceptionsMiddleware();
+                options.Logs = logs =>
+                {
+                    logs.AzureTableName = "BitstampServiceLog";
+                    logs.AzureTableConnectionStringResolver =
+                        settings => settings.BitstampAdapterService.Db.LogsConnString;
+                };
+            });
         }
 
-        protected override void BuildServiceProvilder(LykkeServiceOptions<AppSettings> options)
+        [UsedImplicitly]
+        public void Configure(IApplicationBuilder app)
         {
-            options.ApiTitle = "BitstampAdapter API";
-            options.Logs = ("BitstampAdapterLog", ctx => ctx.BitstampAdapterService.Db.LogsConnString);
+            var settings = app.ApplicationServices.GetService<BitstampAdapterSettings>();
+            var logFactory = app.ApplicationServices.GetService<ILogFactory>();
+            XApiKeyAuthAttribute.Credentials = settings.Clients.ToDictionary(x => x.InternalApiKey, x => (object) x);
+
+            app.UseLykkeConfiguration(options =>
+            {
+                options.SwaggerOptions = _swaggerOptions;
+
+                options.WithMiddleware = x =>
+                {
+                    x.UseAuthenticationMiddleware(token => new ApiClient(GetCredentials(settings, token), logFactory, token));
+                    x.UseHandleBusinessExceptionsMiddleware();
+                    x.UseForwardBitstampExceptionsMiddleware();
+                };
+            });
+
+#if DEBUG
+            TelemetryConfiguration.Active.DisableTelemetry = true;
+#endif
         }
 
         private static ApiCredentials GetCredentials(BitstampAdapterSettings settings, string token)
@@ -37,4 +67,5 @@ namespace Lykke.Service.BitstampAdapter
                 x => string.Equals(token, x.InternalApiKey, StringComparison.InvariantCultureIgnoreCase));
         }
     }
+
 }
