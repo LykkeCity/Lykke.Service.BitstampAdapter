@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Common.ExchangeAdapter;
 using Lykke.Common.ExchangeAdapter.Contracts;
+using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Services.Settings;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +23,7 @@ namespace Lykke.Service.BitstampAdapter.Services
     public sealed class OrderbookPublishingService : IHostedService
     {
         private readonly ILog _log;
+        private readonly ILogFactory _logFactory;
         private readonly OrderbookSettings _orderbookSettings;
         private readonly RabbitMqSettings _rmqSettings;
         private IDisposable _subscription;
@@ -35,10 +37,13 @@ namespace Lykke.Service.BitstampAdapter.Services
             InstrumentSettings instrumentSettings)
         {
             _log = logFactory.CreateLog(this);
+            _logFactory = logFactory;
             _orderbookSettings = orderbookSettings;
             _rmqSettings = rmqSettings;
             _instruments = instrumentSettings.Orderbooks;
         }
+
+        public OrderBooksSession Session { get; private set; }
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
@@ -50,6 +55,8 @@ namespace Lykke.Service.BitstampAdapter.Services
                     () => new DisposablePusher("de504dc5763aeef9ff52", _log),
                     p => _instruments.Select(i => ProcessOrderBooks(p, i)).Merge())
                 .OnlyWithPositiveSpread()
+                .ReportErrors("DisposablePusher", _log)
+                .RetryWithBackoff(TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(10))
                 .Publish()
                 .RefCount();
 
@@ -71,8 +78,12 @@ namespace Lykke.Service.BitstampAdapter.Services
                 var ob = orderbooks
                     .DistinctEveryInstrument(x => x.Asset)
                     .ThrottleEachInstrument(x => x.Asset, _orderbookSettings.MaxEventPerSecondByInstrument)
-                    .PublishToRmq(_rmqSettings.OrderBooks, _log)
-                    .ReportErrors(_log)
+                    .PublishToRmq(
+                        _rmqSettings.OrderBooks.ConnectionString,
+                        _rmqSettings.OrderBooks.Exchanger,
+                        _logFactory,
+                        isDurable: false)
+                    .ReportErrors("OrderBooksPublisher", _log)
                     .RetryWithBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5))
                     .Publish()
                     .RefCount();
@@ -91,17 +102,27 @@ namespace Lykke.Service.BitstampAdapter.Services
                 workers.Add(publishedStat);
             }
 
-            if (_rmqSettings.TickPrices.Enabled)
-            {
-                var tp = orderbooks.Select(TickPrice.FromOrderBook)
-                    .DistinctEveryInstrument(x => x.Asset)
-                    .ThrottleEachInstrument(x => x.Asset, _orderbookSettings.MaxEventPerSecondByInstrument)
-                    .PublishToRmq(_rmqSettings.TickPrices, _log)
-                    .ReportErrors(_log)
-                    .RetryWithBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5));
+            var tickPrices = orderbooks.Select(TickPrice.FromOrderBook)
+                .DistinctEveryInstrument(x => x.Asset)
+                .ThrottleEachInstrument(x => x.Asset, _orderbookSettings.MaxEventPerSecondByInstrument);
 
-                workers.Add(tp);
-            }
+            var tp = tickPrices
+                .PublishToRmq(
+                    _rmqSettings.TickPrices.ConnectionString,
+                    _rmqSettings.TickPrices.Exchanger,
+                    _logFactory,
+                    isDurable: false)
+                .ReportErrors("TickPricesPublisher", _log)
+                .RetryWithBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5))
+                .NeverIfNotEnabled(_rmqSettings.TickPrices.Enabled);
+
+            var worker = workers.Merge();
+
+            Session = new OrderBooksSession(
+                _instruments,
+                tickPrices,
+                orderbooks,
+                worker);
 
             _subscription = new CompositeDisposable(workers.Select(x => x.Subscribe()));
         }
@@ -147,7 +168,15 @@ namespace Lykke.Service.BitstampAdapter.Services
             _client = new Pusher(pusherKey);
 
             _log.WriteInfo(nameof(DisposablePusher), "", $"Connecting to application {pusherKey}...");
-            _client.Connect();
+            try
+            {
+                _client.Connect();
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+
             _log.WriteInfo(nameof(DisposablePusher), "", "Connected");
         }
 
