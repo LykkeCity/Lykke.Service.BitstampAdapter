@@ -205,8 +205,8 @@ namespace Lykke.Service.BitstampAdapter.Controllers
                 Price = limitOrder.Price,
                 RemainingAmount = limitOrder.RemainingAmount,
                 Symbol = limitOrder.Instrument,
-                Timestamp = limitOrder.ModifiedUtc,
-                TradeType = limitOrder.TradeType
+                Timestamp = limitOrder.CreatedUtc,
+                TradeType = limitOrder.TradeType,
             };
         }
 
