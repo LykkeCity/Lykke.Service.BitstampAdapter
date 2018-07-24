@@ -149,11 +149,15 @@ namespace Lykke.Service.BitstampAdapter.Controllers
         {
             var response = await Api.OrderStatus(orderId);
 
-            return FromLimitOrder(await _limitOrderRepository.UpdateTransactions(
+            var limitOrder = await _limitOrderRepository.UpdateTransactions(
                 orderId,
                 ConvertStatus(response.Status),
                 x => GetTransactions(x, response.Transactions)
-            ));
+            );
+
+            if (limitOrder == null) throw new OrderNotFoundException();
+
+            return FromLimitOrder(limitOrder);
         }
 
         private IReadOnlyCollection<OrderTransaction> GetTransactions(
