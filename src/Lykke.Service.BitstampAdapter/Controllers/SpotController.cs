@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using Common;
+using Common.Log;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
+using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.AzureRepositories;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
@@ -59,10 +62,12 @@ namespace Lykke.Service.BitstampAdapter.Controllers
     public sealed class SpotController : SpotControllerBase<ApiClient>
     {
         private readonly LimitOrderRepository _limitOrderRepository;
+        private ILog _log;
 
-        public SpotController(LimitOrderRepository limitOrderRepository)
+        public SpotController(LimitOrderRepository limitOrderRepository, ILogFactory logFactory)
         {
             _limitOrderRepository = limitOrderRepository;
+            _log = logFactory.CreateLog(this);
         }
 
         public override async Task<GetWalletsResponse> GetWalletBalancesAsync()
@@ -166,26 +171,41 @@ namespace Lykke.Service.BitstampAdapter.Controllers
         {
             var (cryptoCurrency, _) = GetSymbols(order.Instrument);
 
-            return transactions.Select(tr =>
+
+            var result = new List<OrderTransaction>();
+
+            foreach (var transaction in transactions)
             {
-                var dict = new Dictionary<string, JToken>(StringComparer.InvariantCultureIgnoreCase);
-
-                foreach (var kv in tr)
+                try
                 {
-                    dict[kv.Key] = kv.Value;
+                    var dict = new Dictionary<string, JToken>(StringComparer.InvariantCultureIgnoreCase);
+
+                    foreach (var keyValue in transaction)
+                    {
+                        dict[keyValue.Key] = keyValue.Value;
+                    }
+
+                    if (!dict.ContainsKey(cryptoCurrency))
+                    {
+                        throw new InvalidOperationException($"Result currency not found in response: {cryptoCurrency}");
+                    }
+
+                    var tran =  new OrderTransaction
+                    {
+                        Amount = dict[cryptoCurrency].Value<decimal>(),
+                        Price = dict["price"].Value<decimal>()
+                    };
+
+                    result.Add(tran);
                 }
-
-                if (!dict.ContainsKey(cryptoCurrency))
+                catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Result currency not found in response: {cryptoCurrency}");
+                    _log.Error(ex, context: $"tran: {transaction}, order: {order.ToJson()}");
+                    throw;
                 }
+            }
 
-                return new OrderTransaction
-                {
-                    Amount = dict[cryptoCurrency].Value<decimal>(),
-                    Price = dict["price"].Value<decimal>()
-                };
-            }).ToArray();
+            return result;
         }
 
         private (string, string) GetSymbols(string orderInstrument)
