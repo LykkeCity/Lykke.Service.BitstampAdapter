@@ -192,8 +192,8 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
                     var tran =  new OrderTransaction
                     {
-                        Amount = dict[cryptoCurrency].Value<decimal>(),
-                        Price = dict["price"].Value<decimal>()
+                        Amount = decimal.Parse(dict[cryptoCurrency].Value<string>(), System.Globalization.NumberStyles.Any),
+                        Price = decimal.Parse(dict["price"].Value<string>(), System.Globalization.NumberStyles.Any)
                     };
 
                     result.Add(tran);
