@@ -11,13 +11,19 @@ using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
+using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl.Transfer;
+using Microsoft.AspNetCore.Razor.Language.Extensions;
+using MongoDB.Bson.IO;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using JsonConvert = Newtonsoft.Json.JsonConvert;
 
 namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
 {
     public sealed class ApiClient
     {
         private readonly HttpClient _client;
+        private readonly HttpClient _clientV1;
 
         public readonly string InternalApiKey;
 
@@ -49,6 +55,11 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             _client = new HttpClient(mainHandler)
             {
                 BaseAddress = new Uri("https://www.bitstamp.net/api/v2/")
+            };
+
+            _clientV1 = new HttpClient(mainHandler)
+            {
+                BaseAddress = new Uri("https://www.bitstamp.net/api/")
             };
         }
 
@@ -315,5 +326,110 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
                 return json.ToObject<CancelOrderResponse>();
             }
         }
+
+        public async Task<TransferResult> TransferSubToMain(string subAccount, decimal amount, string currency)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"currency", currency}
+            };
+
+            if (!string.IsNullOrEmpty(subAccount))
+            {
+                prm.Add("subAccount", subAccount);
+            }
+            
+            using (var msg = await _client.PostAsync("transfer-to-main/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                return json.ToObject<TransferResult>();
+            }
+        }
+
+        public async Task<TransferResult> TransferMainToSub(string subAccount, decimal amount, string currency)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"currency", currency},
+                { "subAccount", subAccount }
+            };
+
+            using (var msg = await _client.PostAsync("transfer-from-main/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                return json.ToObject<TransferResult>();
+            }
+        }
+
+        public async Task<List<UnconfirmedBitcoinDeposit>> UnconfirmedBitcoinDeposits()
+        {
+            using (var msg = await _clientV1.PostAsync("unconfirmed_btc/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<List<UnconfirmedBitcoinDeposit>>(str);
+                return res;
+            }
+        }
+
+        public async Task<string> BitcoinDepositAddress()
+        {
+            using (var msg = await _clientV1.PostAsync("bitcoin_deposit_address/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var res = json.ToString();
+                return res;
+            }
+        }
+
+        public async Task<WithdrawalId> CreateBitcoinWithdrawal(decimal amount, string address, bool supportBitGo)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address},
+                {"instant", supportBitGo ? "1" : "0"}
+            };
+
+            using (var msg = await _clientV1.PostAsync("bitcoin_withdrawal/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
+                return res;
+            }
+        }
+
+        public async Task<List<Withdrawal>> WithdrawalRequests(int timedelta)
+        {
+            if (timedelta > 50000000) timedelta = 50000000;
+            if (timedelta <= 0) timedelta = 86400;
+
+            var prm = new Dictionary<string, string>
+            {
+                {"timedelta", timedelta.ToString(CultureInfo.InvariantCulture)}
+            };
+
+            using (var msg = await _client.PostAsync("withdrawal-requests/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+
+                try
+                {
+                    var res = JsonConvert.DeserializeObject<List<Withdrawal>>(str);
+                    return res;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+            }
+        }
+
+        // WITHDRAWAL REQUESTS
     }
 }
