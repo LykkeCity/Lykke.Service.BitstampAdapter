@@ -100,7 +100,7 @@ namespace Lykke.Service.BitstampAdapter.Controllers
                 }).ToList();
         }
 
-        [HttpGet("bitcoinDepositAddress/{asset}"), XApiKeyAuth]
+        [HttpGet("depositAddress/{asset}"), XApiKeyAuth]
         public async Task<BitcoinDepositAddress> GetDepositAddressAsync(string asset)
         {
             string res = "";
