@@ -77,25 +77,6 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             };
         }
 
-        [HttpGet("unconfirmedBitcoinDeposits"), XApiKeyAuth]
-        public async Task<UnconfirmedBitcoinDepositResponce> UnconfirmedBitcoinDepositsAsync()
-        {
-            var res = await Api.UnconfirmedBitcoinDeposits();
-
-            return new UnconfirmedBitcoinDepositResponce
-            {
-                UnconfirmedDeposits = res.Select(e =>
-                    new UnconfirmedBitcoinDepositResponce.Deposit(e.Amount, e.Address, e.Confirmations)).ToList()
-            };
-        }
-
-        [HttpGet("bitcoinDepositAddress"), XApiKeyAuth]
-        public async Task<BitcoinDepositAddress> BitcoinDepositAddressAsync()
-        {
-            var res = await Api.BitcoinDepositAddress();
-            return new BitcoinDepositAddress {Address = res};
-        }
-
         [HttpGet("bitcoinWithdrawal/{timedeltastr}"), XApiKeyAuth]
         public async Task<List<WithdrawalResponce>> WithdrawalRequestsAsync(string timedeltastr)
         {
@@ -110,13 +91,52 @@ namespace Lykke.Service.BitstampAdapter.Controllers
                 {
                     Amount = res.Amount,
                     Currency = res.Currency,
-                    Status = (WithdrawalResponce.WithdrawalStatus) res.Status,
+                    Status = (WithdrawalResponce.WithdrawalStatus)res.Status,
                     Address = res.Address,
                     Datetime = res.Datetime,
                     Id = res.Id,
                     TransactionId = res.TransactionId,
-                    Type = (WithdrawalResponce.WithdrawalType) res.Type
+                    Type = (WithdrawalResponce.WithdrawalType)res.Type
                 }).ToList();
+        }
+
+        [HttpGet("bitcoinDepositAddress/{asset}"), XApiKeyAuth]
+        public async Task<BitcoinDepositAddress> GetDepositAddressAsync(string asset)
+        {
+            string res = "";
+
+            if (asset.ToUpper() == "BTC")
+            {
+                res = await Api.BitcoinDepositAddress();
+                return new BitcoinDepositAddress { Address = res };
+            }
+
+            if (asset.ToUpper() == "LTC")
+            {
+                res = await Api.LitecoinDepositAddress();
+                return new BitcoinDepositAddress { Address = res };
+            }
+
+            if (asset.ToUpper() == "ETH")
+            {
+                res = await Api.EthDepositAddress();
+                return new BitcoinDepositAddress { Address = res };
+            }
+
+            if (asset.ToUpper() == "BCH")
+            {
+                res = await Api.BchDepositAddress();
+                return new BitcoinDepositAddress { Address = res };
+            }
+
+            if (asset.ToUpper() == "XRP")
+            {
+                res = await Api.XrpDepositAddress();
+                return new BitcoinDepositAddress { Address = res };
+            }
+
+
+            throw new Exception($"Incorect asset: {asset}");
         }
 
         [HttpPost("createCoinsWithdrawal"), XApiKeyAuth]
@@ -131,16 +151,51 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             if (request.Amount <= 0)
                 throw new Exception("Request.Amount must be more zero");
 
-            if (request.Currency.ToUpper() == "BTC")
+            if (request.Asset.ToUpper() == "BTC")
             {
-                var res = await Api.CreateBitcoinWithdrawal(request.Amount, request.Address,
-                    request.SupportBitGo ?? false);
-
+                var res = await Api.CreateBitcoinWithdrawal(request.Amount, request.Address, request.SupportBitGo ?? false);
                 return new CoinsWithdrawalResponce {WithdrawalId = res.Id};
             }
 
-            throw new Exception($"Currency {request.Currency} not supported");
+            if (request.Asset.ToUpper() == "ETH")
+            {
+                var res = await Api.CreateEthWithdrawal(request.Amount, request.Address);
+                return new CoinsWithdrawalResponce { WithdrawalId = res.Id };
+            }
+
+            if (request.Asset.ToUpper() == "LTC")
+            {
+                var res = await Api.CreateLitecoinWithdrawal(request.Amount, request.Address);
+                return new CoinsWithdrawalResponce { WithdrawalId = res.Id };
+            }
+
+            if (request.Asset.ToUpper() == "BCH")
+            {
+                var res = await Api.CreateBchWithdrawal(request.Amount, request.Address);
+                return new CoinsWithdrawalResponce { WithdrawalId = res.Id };
+            }
+
+            if (request.Asset.ToUpper() == "XRP")
+            {
+                var res = await Api.CreateXrpWithdrawal(request.Amount, request.Address, request.XrpDestinationTag);
+                return new CoinsWithdrawalResponce { WithdrawalId = res.Id };
+            }
+
+            throw new Exception($"Asset {request.Asset} not supported");
         }
+
+        [HttpGet("unconfirmedBitcoinDeposits"), XApiKeyAuth]
+        public async Task<UnconfirmedBitcoinDepositResponce> UnconfirmedBitcoinDepositsAsync()
+        {
+            var res = await Api.UnconfirmedBitcoinDeposits();
+
+            return new UnconfirmedBitcoinDepositResponce
+            {
+                UnconfirmedDeposits = res.Select(e =>
+                    new UnconfirmedBitcoinDepositResponce.Deposit(e.Amount, e.Address, e.Confirmations)).ToList()
+            };
+        }
+
     }
 
     public class CoinsWithdrawalResponce
@@ -150,9 +205,10 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
     public class CoinsWithdrawalRequest
     {
-        public string Currency { get; set; }
+        public string Asset { get; set; }
         public decimal Amount { get; set; }
         public string Address { get; set; }
+        public string XrpDestinationTag { get; set; }
         public bool? SupportBitGo { get; set; }
     }
 

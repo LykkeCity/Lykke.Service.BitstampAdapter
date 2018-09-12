@@ -374,34 +374,6 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             }
         }
 
-        public async Task<string> BitcoinDepositAddress()
-        {
-            using (var msg = await _clientV1.PostAsync("bitcoin_deposit_address/", EmptyRequest()))
-            {
-                var json = await ReadAsJson(msg);
-                var res = json.ToString();
-                return res;
-            }
-        }
-
-        public async Task<WithdrawalId> CreateBitcoinWithdrawal(decimal amount, string address, bool supportBitGo)
-        {
-            var prm = new Dictionary<string, string>
-            {
-                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
-                {"address", address},
-                {"instant", supportBitGo ? "1" : "0"}
-            };
-
-            using (var msg = await _clientV1.PostAsync("bitcoin_withdrawal/", new FormUrlEncodedContent(prm)))
-            {
-                var json = await ReadAsJson(msg);
-                var str = json.ToString();
-                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
-                return res;
-            }
-        }
-
         public async Task<List<Withdrawal>> WithdrawalRequests(int timedelta)
         {
             if (timedelta > 50000000) timedelta = 50000000;
@@ -430,6 +402,143 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             }
         }
 
-        // WITHDRAWAL REQUESTS
+        public async Task<string> BitcoinDepositAddress()
+        {
+            using (var msg = await _clientV1.PostAsync("bitcoin_deposit_address/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var res = json.ToString();
+                return res;
+            }
+        }
+
+        public async Task<string> LitecoinDepositAddress()
+        {
+            using (var msg = await _client.PostAsync("ltc_address/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var res = JsonConvert.DeserializeObject<WalletAddress>(json.ToString());
+                return res.Address;
+            }
+        }
+
+        public async Task<string> EthDepositAddress()
+        {
+            using (var msg = await _client.PostAsync("eth_address/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var res = JsonConvert.DeserializeObject<WalletAddress>(json.ToString());
+                return res.Address;
+            }
+        }
+
+        public async Task<string> XrpDepositAddress()
+        {
+            using (var msg = await _client.PostAsync("xrp_address/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var res = JsonConvert.DeserializeObject<WalletAddress>(json.ToString());
+                return res.Address;
+            }
+        }
+
+        public async Task<string> BchDepositAddress()
+        {
+            using (var msg = await _client.PostAsync("bch_address/", EmptyRequest()))
+            {
+                var json = await ReadAsJson(msg);
+                var res = JsonConvert.DeserializeObject<WalletAddress>(json.ToString());
+                return res.Address;
+            }
+        }
+
+        public async Task<WithdrawalId> CreateBitcoinWithdrawal(decimal amount, string address, bool supportBitGo)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address},
+                {"instant", supportBitGo ? "1" : "0"}
+            };
+
+            using (var msg = await _clientV1.PostAsync("bitcoin_withdrawal/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
+                return res;
+            }
+        }
+
+        public async Task<WithdrawalId> CreateLitecoinWithdrawal(decimal amount, string address)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address}
+            };
+
+            using (var msg = await _client.PostAsync("ltc_withdrawal/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
+                return res;
+            }
+        }
+
+        public async Task<WithdrawalId> CreateEthWithdrawal(decimal amount, string address)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address}
+            };
+
+            using (var msg = await _client.PostAsync("eth_withdrawal/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
+                return res;
+            }
+        }
+
+        public async Task<WithdrawalId> CreateXrpWithdrawal(decimal amount, string address, string destinationTag=null)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address},
+            };
+
+            if (!string.IsNullOrEmpty(destinationTag))
+                 prm.Add("destination_tag", destinationTag);
+
+            using (var msg = await _client.PostAsync("xrp_withdrawal/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
+                return res;
+            }
+        }
+
+        public async Task<WithdrawalId> CreateBchWithdrawal(decimal amount, string address)
+        {
+            var prm = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address}
+            };
+
+            using (var msg = await _client.PostAsync("bch_withdrawal/", new FormUrlEncodedContent(prm)))
+            {
+                var json = await ReadAsJson(msg);
+                var str = json.ToString();
+                var res = JsonConvert.DeserializeObject<WithdrawalId>(str);
+                return res;
+            }
+        }
     }
 }
