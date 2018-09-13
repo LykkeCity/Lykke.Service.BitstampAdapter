@@ -1,13 +1,12 @@
-﻿using System;
+using System;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
-using Lykke.Service.BitstampAdapter.AzureRepositories;
 
-namespace Lykke.Service.BitstampAdapter.Controllers.Dto
+namespace Lykke.Service.BitstampAdapter.AzureRepositories.Models
 {
-    public sealed class CreatedLimitOrder : ILimitOrder
+    public sealed class LimitOrder : ILimitOrder
     {
-        public CreatedLimitOrder(
+        public LimitOrder(
             string id,
             string instrument,
             decimal price,

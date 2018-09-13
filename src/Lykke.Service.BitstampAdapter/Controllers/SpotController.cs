@@ -11,6 +11,9 @@ using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.AzureRepositories;
+using Lykke.Service.BitstampAdapter.AzureRepositories.Models;
+using Lykke.Service.BitstampAdapter.Client.Api;
+using Lykke.Service.BitstampAdapter.Client.Models.Balances;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
 using Microsoft.AspNetCore.Mvc;
@@ -18,48 +21,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Lykke.Service.BitstampAdapter.Controllers
 {
-    public sealed class CreatedLimitOrder : ILimitOrder
-    {
-        public CreatedLimitOrder(
-            string id,
-            string instrument,
-            decimal price,
-            decimal amount,
-            DateTime createdUtc,
-            DateTime modifiedUtc,
-            TradeType tradeType,
-            OrderStatus status,
-            decimal? avgExecutionPrice,
-            decimal executedAmount,
-            decimal remainingAmount)
-        {
-            Id = id;
-            Instrument = instrument;
-            Price = price;
-            Amount = amount;
-            CreatedUtc = createdUtc;
-            ModifiedUtc = modifiedUtc;
-            TradeType = tradeType;
-            Status = status;
-            AvgExecutionPrice = avgExecutionPrice;
-            ExecutedAmount = executedAmount;
-            RemainingAmount = remainingAmount;
-        }
-
-        public string Id { get; set; }
-        public string Instrument { get; set; }
-        public decimal Price { get; set; }
-        public decimal Amount { get; set; }
-        public DateTime CreatedUtc { get; set; }
-        public DateTime ModifiedUtc { get; set; }
-        public TradeType TradeType { get; set; }
-        public OrderStatus Status { get; set; }
-        public decimal? AvgExecutionPrice { get; set; }
-        public decimal ExecutedAmount { get; set; }
-        public decimal RemainingAmount { get; set; }
-    }
-
-    public sealed class SpotController : SpotControllerBase<ApiClient>
+    public sealed class SpotController : SpotControllerBase<ApiClient>, IBalancesApi
     {
         private readonly LimitOrderRepository _limitOrderRepository;
         private ILog _log;
@@ -70,11 +32,26 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             _log = logFactory.CreateLog(this);
         }
 
+        [HttpGet("/api/balances")]
+        public async Task<IReadOnlyCollection<BalanceModel>> GetAsync()
+        {
+            GetWalletsResponse walletsResponse = await GetWalletBalancesAsync();
+
+            return walletsResponse.Wallets
+                .Select(o => new BalanceModel
+                {
+                    Asset = o.Asset,
+                    Balance = o.Balance,
+                    Reserved = o.Reserved
+                })
+                .ToArray();
+        }
+        
         public override async Task<GetWalletsResponse> GetWalletBalancesAsync()
         {
             return new GetWalletsResponse
             {
-                Wallets = await Api.Balance()
+                Wallets = await Api.GetBalanceAsync()
             };
         }
 
@@ -92,21 +69,21 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             switch (request.TradeType)
             {
                 case TradeType.Buy:
-                    orderId = (await Api.BuyLimitOrder(limitOrder)).Id;
+                    orderId = (await Api.CreateBuyLimitOrderAsync(limitOrder)).Id;
                     break;
 
                 case TradeType.Sell:
-                    orderId = (await Api.SellLimitOrder(limitOrder)).Id;
+                    orderId = (await Api.CreateSellLimitOrderAsync(limitOrder)).Id;
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException();
             }
 
-            await _limitOrderRepository.Insert(new CreatedLimitOrder(
-                id: orderId,
-                instrument: limitOrder.Asset,
-                price: request.Price,
+            await _limitOrderRepository.InsertAsync(new LimitOrder(
+                orderId,
+                limitOrder.Asset,
+                request.Price,
                 executedAmount: 0M,
                 amount: request.Volume,
                 createdUtc: DateTime.UtcNow,
@@ -121,7 +98,7 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
         public override async Task<GetLimitOrdersResponse> GetLimitOrdersAsync()
         {
-            return new GetLimitOrdersResponse { Orders = (await Api.OpenOrders()).Select(FromShortOrder).ToArray() };
+            return new GetLimitOrdersResponse { Orders = (await Api.GetOpenOrdersAsync()).Select(FromShortOrder).ToArray() };
         }
 
         public override async Task<CancelLimitOrderResponse> CancelLimitOrderAsync(
@@ -131,14 +108,14 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
             try
             {
-                response = await Api.CancelOrder(request.OrderId);
+                response = await Api.CancelOrderAsync(request.OrderId);
             }
             catch (OrderNotFoundException)
             {
                 return new CancelLimitOrderResponse {OrderId = request.OrderId};
             }
 
-            await _limitOrderRepository.UpdateStatus(response.Id, OrderStatus.Canceled);
+            await _limitOrderRepository.UpdateStatusAsync(response.Id, OrderStatus.Canceled);
 
             return new CancelLimitOrderResponse {OrderId = response.Id};
         }
@@ -152,9 +129,9 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
         public override async Task<OrderModel> LimitOrderStatusAsync(string orderId)
         {
-            var response = await Api.OrderStatus(orderId);
+            var response = await Api.GetOrderStatusAsync(orderId);
 
-            var limitOrder = await _limitOrderRepository.UpdateTransactions(
+            var limitOrder = await _limitOrderRepository.UpdateTransactionsAsync(
                 orderId,
                 ConvertStatus(response.Status),
                 x => GetTransactions(x, response.Transactions)
