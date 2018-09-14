@@ -6,7 +6,7 @@
     <Version>1.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Lykke.AzureStorage" Version="8.10.0" />
+    <PackageReference Include="Lykke.AzureStorage" Version="8.11.0" />
     <PackageReference Include="Lykke.Common.ExchangeAdapter.Server" Version="4.0.0" />
   </ItemGroup>
   <ItemGroup>
