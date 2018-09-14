@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Net;
 using System.Threading.Tasks;
+using Common.Log;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Microsoft.AspNetCore.Mvc;
 using Lykke.Common.ExchangeAdapter.Server;
+using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Client.Api;
 using Lykke.Service.BitstampAdapter.Client.Models.Transfers;
 using Lykke.Service.BitstampAdapter.Extensions;
+using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl.Transfer;
 
 namespace Lykke.Service.BitstampAdapter.Controllers
 {
@@ -13,49 +17,60 @@ namespace Lykke.Service.BitstampAdapter.Controllers
     [Route("/api/[controller]")]
     public class TransfersController : Controller, ITransfersApi
     {
-        private readonly ApiClient _api;
+        private readonly ILog _log;
 
-        public TransfersController()
+        public TransfersController(ILogFactory logFactory)
         {
-            _api = this.GetRestApi<ApiClient>();
+            _log = logFactory.CreateLog(this);
         }
 
+        protected ApiClient Api => this.GetRestApi<ApiClient>();
+
+        /// <response code="200">The status of transfer</response>
         [HttpPost("fromSubToMain")]
+        [ProducesResponseType(typeof(TransferStatusModel), (int) HttpStatusCode.OK)]
         public async Task<TransferStatusModel> FromSubToMainAsync([FromBody] TransferModel model)
         {
-            if (string.IsNullOrEmpty(model.Currency))
-                throw new Exception("Currency is required");
+            TransferResult transferResult;
 
-            if (model.Amount <=0 )
-                throw new Exception("Amount should greater than zero");
-
-            var res = await _api.TransferSubToMainAsync(model.Account, model.Amount, model.Currency);
+            try
+            {
+                transferResult = await Api.TransferSubToMainAsync(model.Account, model.Amount, model.Currency);
+            }
+            catch (Exception exception)
+            {
+                _log.ErrorWithDetails(exception, model);
+                throw;
+            }
 
             return new TransferStatusModel
             {
-                Reason = res.Reason,
-                Status = res.Status
+                Reason = transferResult.Reason,
+                Status = transferResult.Status
             };
         }
 
+        /// <response code="200">The status of transfer</response>
         [HttpPost("fromMainToSub")]
+        [ProducesResponseType(typeof(TransferStatusModel), (int) HttpStatusCode.OK)]
         public async Task<TransferStatusModel> FromMainToSubAsync([FromBody] TransferModel model)
         {
-            if (string.IsNullOrEmpty(model.Account))
-                throw new Exception("Request.SubAccount cannot be null");
+            TransferResult transferResult;
 
-            if (string.IsNullOrEmpty(model.Currency))
-                throw new Exception("Request.Currency cannot be null");
-
-            if (model.Amount <= 0)
-                throw new Exception("Request.Amount must be more zero");
-
-            var res = await _api.TransferMainToSubAsync(model.Account, model.Amount, model.Currency);
+            try
+            {
+                transferResult = await Api.TransferMainToSubAsync(model.Account, model.Amount, model.Currency);
+            }
+            catch (Exception exception)
+            {
+                _log.ErrorWithDetails(exception, model);
+                throw;
+            }
 
             return new TransferStatusModel
             {
-                Reason = res.Reason,
-                Status = res.Status
+                Reason = transferResult.Reason,
+                Status = transferResult.Status
             };
         }
     }

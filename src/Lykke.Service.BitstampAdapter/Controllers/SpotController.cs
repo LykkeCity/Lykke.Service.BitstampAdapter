@@ -12,8 +12,6 @@ using Lykke.Common.ExchangeAdapter.SpotController.Records;
 using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.AzureRepositories;
 using Lykke.Service.BitstampAdapter.AzureRepositories.Models;
-using Lykke.Service.BitstampAdapter.Client.Api;
-using Lykke.Service.BitstampAdapter.Client.Models.Balances;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +19,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Lykke.Service.BitstampAdapter.Controllers
 {
-    public sealed class SpotController : SpotControllerBase<ApiClient>, IBalancesApi
+    public sealed class SpotController : SpotControllerBase<ApiClient>
     {
         private readonly LimitOrderRepository _limitOrderRepository;
         private ILog _log;
@@ -32,21 +30,6 @@ namespace Lykke.Service.BitstampAdapter.Controllers
             _log = logFactory.CreateLog(this);
         }
 
-        [HttpGet("/api/balances")]
-        public async Task<IReadOnlyCollection<BalanceModel>> GetAsync()
-        {
-            GetWalletsResponse walletsResponse = await GetWalletBalancesAsync();
-
-            return walletsResponse.Wallets
-                .Select(o => new BalanceModel
-                {
-                    Asset = o.Asset,
-                    Balance = o.Balance,
-                    Reserved = o.Reserved
-                })
-                .ToArray();
-        }
-        
         public override async Task<GetWalletsResponse> GetWalletBalancesAsync()
         {
             return new GetWalletsResponse
@@ -98,7 +81,8 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
         public override async Task<GetLimitOrdersResponse> GetLimitOrdersAsync()
         {
-            return new GetLimitOrdersResponse { Orders = (await Api.GetOpenOrdersAsync()).Select(FromShortOrder).ToArray() };
+            return new GetLimitOrdersResponse
+                {Orders = (await Api.GetOpenOrdersAsync()).Select(FromShortOrder).ToArray()};
         }
 
         public override async Task<CancelLimitOrderResponse> CancelLimitOrderAsync(
@@ -124,7 +108,7 @@ namespace Lykke.Service.BitstampAdapter.Controllers
         {
             var orders = await _limitOrderRepository.GetAll().Take(500).ToArray();
 
-            return new GetOrdersHistoryResponse { Orders = orders.Select(FromLimitOrder).ToArray() };
+            return new GetOrdersHistoryResponse {Orders = orders.Select(FromLimitOrder).ToArray()};
         }
 
         public override async Task<OrderModel> LimitOrderStatusAsync(string orderId)
@@ -167,9 +151,10 @@ namespace Lykke.Service.BitstampAdapter.Controllers
                         throw new InvalidOperationException($"Result currency not found in response: {cryptoCurrency}");
                     }
 
-                    var tran =  new OrderTransaction
+                    var tran = new OrderTransaction
                     {
-                        Amount = decimal.Parse(dict[cryptoCurrency].Value<string>(), System.Globalization.NumberStyles.Any),
+                        Amount = decimal.Parse(dict[cryptoCurrency].Value<string>(),
+                            System.Globalization.NumberStyles.Any),
                         Price = decimal.Parse(dict["price"].Value<string>(), System.Globalization.NumberStyles.Any)
                     };
 
@@ -187,9 +172,10 @@ namespace Lykke.Service.BitstampAdapter.Controllers
 
         private (string, string) GetSymbols(string orderInstrument)
         {
-            if (orderInstrument.Length != 6) throw new ArgumentException(
-                "Expected asset of 6 chars length",
-                nameof(orderInstrument));
+            if (orderInstrument.Length != 6)
+                throw new ArgumentException(
+                    "Expected asset of 6 chars length",
+                    nameof(orderInstrument));
 
             return (orderInstrument.Substring(0, 3), orderInstrument.Substring(3));
         }

@@ -1,7 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using Lykke.Common.ApiLibrary.Exceptions;
 using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Service.BitstampAdapter.Client.Api;
 using Lykke.Service.BitstampAdapter.Client.Models.Deposits;
@@ -16,40 +17,39 @@ namespace Lykke.Service.BitstampAdapter.Controllers
     [Route("/api/[controller]")]
     public class DepositsController : Controller, IDepositsApi
     {
-        private readonly ApiClient _api;
+        protected ApiClient Api => this.GetRestApi<ApiClient>();
 
-        public DepositsController()
-        {
-            _api = this.GetRestApi<ApiClient>();
-        }
-
+        /// <response code="200">An address of asset deposit</response>
         [HttpGet("{asset}/address")]
+        [ProducesResponseType(typeof(DepositAddressModel), (int) HttpStatusCode.OK)]
         public async Task<DepositAddressModel> GetAddressAsync(string asset)
         {
             string address = null;
 
             if (asset.ToUpper() == "BTC")
-                address = await _api.GetBitcoinDepositAddressAsync();
+                address = await Api.GetBitcoinDepositAddressAsync();
             else if (asset.ToUpper() == "LTC")
-                address = await _api.GetLitecoinDepositAddressAsync();
+                address = await Api.GetLitecoinDepositAddressAsync();
             else if (asset.ToUpper() == "ETH")
-                address = await _api.GetEthDepositAddressAsync();
+                address = await Api.GetEthDepositAddressAsync();
             else if (asset.ToUpper() == "BCH")
-                address = await _api.GetBchDepositAddressAsync();
+                address = await Api.GetBchDepositAddressAsync();
             else if (asset.ToUpper() == "XRP")
-                address = await _api.GetXrpDepositAddressAsync();
+                address = await Api.GetXrpDepositAddressAsync();
 
             if (string.IsNullOrEmpty(address))
-                throw new Exception($"Unknown asset '{asset}'");
+                throw new ValidationApiException($"Unknown asset '{asset}'");
 
             return new DepositAddressModel {Address = address};
         }
 
+        /// <response code="200">A collection of unconfirmed deposits</response>
         [HttpGet("BTC/unconfirmed")]
+        [ProducesResponseType(typeof(IReadOnlyCollection<DepositModel>), (int) HttpStatusCode.OK)]
         public async Task<IReadOnlyCollection<DepositModel>> GetUnconfirmedAsync()
         {
             IReadOnlyCollection<UnconfirmedBitcoinDeposit> deposits =
-                await _api.GetUnconfirmedBitcoinDepositsAsync();
+                await Api.GetUnconfirmedBitcoinDepositsAsync();
 
             return deposits.Select(o => new DepositModel
                 {

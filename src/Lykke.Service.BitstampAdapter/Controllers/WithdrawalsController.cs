@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using Common.Log;
+using Lykke.Common.ApiLibrary.Exceptions;
 using Lykke.Common.ExchangeAdapter.Server;
+using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Client.Api;
 using Lykke.Service.BitstampAdapter.Client.Models.Withdrawals;
 using Lykke.Service.BitstampAdapter.Extensions;
@@ -16,17 +20,21 @@ namespace Lykke.Service.BitstampAdapter.Controllers
     [Route("/api/[controller]")]
     public class WithdrawalsController : Controller, IWithdrawalsApi
     {
-        private readonly ApiClient _api;
+        private readonly ILog _log;
 
-        public WithdrawalsController()
+        public WithdrawalsController(ILogFactory logFactory)
         {
-            _api = this.GetRestApi<ApiClient>();
+            _log = logFactory.CreateLog(this);
         }
 
-        [HttpGet("BTC")]
+        protected ApiClient Api => this.GetRestApi<ApiClient>();
+
+        /// <response code="200">A collection of withdrawals</response>
+        [HttpGet]
+        [ProducesResponseType(typeof(IReadOnlyCollection<WithdrawalModel>), (int) HttpStatusCode.OK)]
         public async Task<IReadOnlyCollection<WithdrawalModel>> GetAsync(DateTime dateFrom)
         {
-            IReadOnlyCollection<Withdrawal> withdrawals = await _api.GetWithdrawalRequestsAsync(dateFrom);
+            IReadOnlyCollection<Withdrawal> withdrawals = await Api.GetWithdrawalRequestsAsync(dateFrom);
 
             return withdrawals.Select(o =>
                 new WithdrawalModel
@@ -42,32 +50,36 @@ namespace Lykke.Service.BitstampAdapter.Controllers
                 }).ToArray();
         }
 
+        /// <response code="200">A identifier of the withdrawal</response>
         [HttpPost]
+        [ProducesResponseType(typeof(WithdrawalIdModel), (int) HttpStatusCode.OK)]
         public async Task<WithdrawalIdModel> CreateAsync([FromBody] CreateWithdrawalModel model)
         {
-            if (string.IsNullOrEmpty(model.Address))
-                throw new Exception("Address is required");
-
-            if (model.Amount <= 0)
-                throw new Exception("Amount should be greater than zero");
-
             WithdrawalId withdrawalId = null;
 
-            if (model.Asset.ToUpper() == "BTC")
-                withdrawalId = await _api.CreateBitcoinWithdrawalAsync(model.Amount, model.Address,
-                    model.SupportBitGo ?? false);
-            else if (model.Asset.ToUpper() == "ETH")
-                withdrawalId = await _api.CreateEthWithdrawalAsync(model.Amount, model.Address);
-            else if (model.Asset.ToUpper() == "LTC")
-                withdrawalId = await _api.CreateLitecoinWithdrawalAsync(model.Amount, model.Address);
-            else if (model.Asset.ToUpper() == "BCH")
-                withdrawalId = await _api.CreateBchWithdrawalAsync(model.Amount, model.Address);
-            else if (model.Asset.ToUpper() == "XRP")
-                withdrawalId = await _api.CreateXrpWithdrawalAsync(model.Amount, model.Address,
-                    model.XrpDestinationTag);
-            
+            try
+            {
+                if (model.Asset.ToUpper() == "BTC")
+                    withdrawalId = await Api.CreateBitcoinWithdrawalAsync(model.Amount, model.Address,
+                        model.SupportBitGo ?? false);
+                else if (model.Asset.ToUpper() == "ETH")
+                    withdrawalId = await Api.CreateEthWithdrawalAsync(model.Amount, model.Address);
+                else if (model.Asset.ToUpper() == "LTC")
+                    withdrawalId = await Api.CreateLitecoinWithdrawalAsync(model.Amount, model.Address);
+                else if (model.Asset.ToUpper() == "BCH")
+                    withdrawalId = await Api.CreateBchWithdrawalAsync(model.Amount, model.Address);
+                else if (model.Asset.ToUpper() == "XRP")
+                    withdrawalId = await Api.CreateXrpWithdrawalAsync(model.Amount, model.Address,
+                        model.XrpDestinationTag);
+            }
+            catch (Exception exception)
+            {
+                _log.ErrorWithDetails(exception, model);
+                throw;
+            }
+
             if (withdrawalId == null)
-                throw new Exception($"Asset '{model.Asset}' not supported");
+                throw new ValidationApiException($"Asset '{model.Asset}' not supported");
 
             return new WithdrawalIdModel {Id = withdrawalId.Id};
         }
