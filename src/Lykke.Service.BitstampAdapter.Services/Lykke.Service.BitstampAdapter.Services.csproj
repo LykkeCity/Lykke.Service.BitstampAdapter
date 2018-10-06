@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Lykke.Common.ExchangeAdapter.Server" Version="4.0.0" />
     <PackageReference Include="Microsoft.AspNet.WebApi.Client" Version="5.2.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="PusherClient" Version="0.5.1" />
   </ItemGroup>
   <ItemGroup>

@@ -13,20 +13,6 @@ namespace Lykke.Service.BitstampAdapter.Tests
 {
     public sealed class client_tests
     {
-        [Test, Explicit]
-        public async Task get_balance()
-        {
-            var apiCredentials = new ApiCredentials(
-                "",
-                "",
-                ""
-            );
-
-            var client = new ApiClient(apiCredentials, EmptyLogFactory.Instance);
-
-            Console.WriteLine(JsonConvert.SerializeObject(await client.OrderStatus("1704450591")));
-        }
-
         [Test]
         public void test_decode_shortorder()
         {

@@ -5,10 +5,10 @@ using Lykke.AzureStorage.Tables.Entity.ValueTypesMerging;
 using Lykke.Common.ExchangeAdapter.Contracts;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
 
-namespace Lykke.Service.BitstampAdapter.AzureRepositories.Entities
+namespace Lykke.Service.BitstampAdapter.AzureRepositories
 {
     [ValueTypeMergingStrategy(ValueTypeMergingStrategy.UpdateAlways)]
-    public class LimitOrder : AzureTableEntity, ILimitOrder
+    public class LimitOrderEntity : AzureTableEntity, ILimitOrder
     {
         string ILimitOrder.Id
         {
@@ -33,7 +33,7 @@ namespace Lykke.Service.BitstampAdapter.AzureRepositories.Entities
                 return orderId;
             }
 
-            public static LimitOrder Create(
+            public static LimitOrderEntity Create(
                 ILimitOrder order,
                 string internalApiKey,
                 DateTime? createdUtc = null,
@@ -41,7 +41,7 @@ namespace Lykke.Service.BitstampAdapter.AzureRepositories.Entities
             {
                 var dateTime = createdUtc ?? DateTime.UtcNow;
 
-                var limitOrder = new LimitOrder
+                var limitOrder = new LimitOrderEntity
                 {
                     InternalApiKey = internalApiKey,
                     Instrument = order.Instrument,

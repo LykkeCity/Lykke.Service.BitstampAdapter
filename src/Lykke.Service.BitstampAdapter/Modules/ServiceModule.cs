@@ -1,9 +1,9 @@
 ﻿using Autofac;
 using AzureStorage;
 using AzureStorage.Tables;
+using JetBrains.Annotations;
 using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.AzureRepositories;
-using Lykke.Service.BitstampAdapter.AzureRepositories.Entities;
 using Lykke.Service.BitstampAdapter.Services;
 using Lykke.Service.BitstampAdapter.Services.Settings;
 using Lykke.Service.BitstampAdapter.Settings;
@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Lykke.Service.BitstampAdapter.Modules
 {
+    [UsedImplicitly]
     public class ServiceModule : Module
     {
         private readonly IReloadingManager<AppSettings> _appSettings;
@@ -23,8 +24,6 @@ namespace Lykke.Service.BitstampAdapter.Modules
 
         protected override void Load(ContainerBuilder builder)
         {
-            // Do not register entire settings in container, pass necessary settings to services which requires them
-
             var settings = _appSettings.CurrentValue.BitstampAdapterService;
 
             builder.RegisterInstance(settings).AsSelf();
@@ -38,14 +37,18 @@ namespace Lykke.Service.BitstampAdapter.Modules
                 .SingleInstance();
 
             builder.Register(ctx =>
-                    AzureTableStorage<LimitOrder>.Create(
+                    AzureTableStorage<LimitOrderEntity>.Create(
                         _appSettings.ConnectionString(x => x.BitstampAdapterService.Db.OrdersConnString),
                         "BitstampLimitOrders",
                         ctx.Resolve<ILogFactory>()))
-                .As<INoSQLTableStorage<LimitOrder>>()
+                .As<INoSQLTableStorage<LimitOrderEntity>>()
                 .SingleInstance();
 
             builder.RegisterType<LimitOrderRepository>()
+                .SingleInstance()
+                .AsSelf();
+
+            builder.RegisterType<HttpClientFactory>()
                 .SingleInstance()
                 .AsSelf();
         }

@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Common.Log;
 using Lykke.Sdk;
+using Lykke.Service.BitstampAdapter.Services;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient;
 using Lykke.Service.BitstampAdapter.Settings;
 using Microsoft.ApplicationInsights.Extensibility;
@@ -41,7 +42,7 @@ namespace Lykke.Service.BitstampAdapter
         public void Configure(IApplicationBuilder app)
         {
             var settings = app.ApplicationServices.GetService<BitstampAdapterSettings>();
-            var logFactory = app.ApplicationServices.GetService<ILogFactory>();
+            var httpClientFactory = app.ApplicationServices.GetService<HttpClientFactory>();
             XApiKeyAuthAttribute.Credentials = settings.Clients.ToDictionary(x => x.InternalApiKey, x => (object) x);
 
             app.UseLykkeConfiguration(options =>
@@ -50,7 +51,8 @@ namespace Lykke.Service.BitstampAdapter
 
                 options.WithMiddleware = x =>
                 {
-                    x.UseAuthenticationMiddleware(token => new ApiClient(GetCredentials(settings, token), logFactory, token));
+                    x.UseAuthenticationMiddleware(token =>
+                        new ApiClient(GetCredentials(settings, token), httpClientFactory, token));
                     x.UseHandleBusinessExceptionsMiddleware();
                     x.UseForwardBitstampExceptionsMiddleware();
                 };
@@ -67,5 +69,4 @@ namespace Lykke.Service.BitstampAdapter
                 x => string.Equals(token, x.InternalApiKey, StringComparison.InvariantCultureIgnoreCase));
         }
     }
-
 }

@@ -14,7 +14,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DocumentationFile>bin\Debug\netcoreapp2.0\Lykke.Service.BitstampAdapter.xml</DocumentationFile>
     <NoWarn>1701;1702;1705;1591</NoWarn>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>7.1</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <None Update="Dockerfile">
@@ -29,6 +29,7 @@
     <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\client\Lykke.Service.BitstampAdapter.Client\Lykke.Service.BitstampAdapter.Client.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.AzureRepositories\Lykke.Service.BitstampAdapter.AzureRepositories.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Core\Lykke.Service.BitstampAdapter.Core.csproj" />
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Services\Lykke.Service.BitstampAdapter.Services.csproj" />

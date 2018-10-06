@@ -1,7 +1,23 @@
-namespace Lykke.Service.BitstampAdapter.Client 
+using JetBrains.Annotations;
+using Lykke.SettingsReader.Attributes;
+
+namespace Lykke.Service.BitstampAdapter.Client
 {
-    public class BitstampAdapterServiceClientSettings 
+    /// <summary>
+    /// Bitstamp adapter service client settings.
+    /// </summary>
+    [PublicAPI]
+    public class BitstampAdapterServiceClientSettings
     {
-        public string ServiceUrl {get; set;}
+        /// <summary>
+        /// Service url.
+        /// </summary>
+        [HttpCheck("api/isalive")]
+        public string ServiceUrl { get; set; }
+
+        /// <summary>
+        /// The api key which used to authorize.
+        /// </summary>
+        public string ApiKey { get; set; }
     }
 }

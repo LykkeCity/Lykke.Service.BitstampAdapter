@@ -6,191 +6,341 @@ using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Lykke.Common.ExchangeAdapter.Server;
 using Lykke.Common.ExchangeAdapter.Server.Fails;
 using Lykke.Common.ExchangeAdapter.SpotController.Records;
-using Lykke.Common.Log;
 using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl;
+using Lykke.Service.BitstampAdapter.Services.BitstampClient.Dsl.Transfer;
 using Newtonsoft.Json.Linq;
+using JsonConvert = Newtonsoft.Json.JsonConvert;
 
 namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
 {
     public sealed class ApiClient
     {
-        private readonly HttpClient _client;
-
+        private readonly IApiCredentials _credentials;
+        private readonly HttpClientFactory _httpClientFactory;
         public readonly string InternalApiKey;
-
-        private static FormUrlEncodedContent EmptyRequest()
-        {
-            return new FormUrlEncodedContent(new List<KeyValuePair<string, string>>());
-        }
 
         public ApiClient(
             IApiCredentials credentials,
-            ILogFactory logFactory,
+            HttpClientFactory httpClientFactory,
             string internalApiKey = "n/a")
         {
-            var log = logFactory.CreateLog(this);
-
+            _credentials = credentials;
+            _httpClientFactory = httpClientFactory;
             InternalApiKey = internalApiKey;
-
-            HttpMessageHandler mainHandler = new LoggingHandler(log, new HttpClientHandler());
-
-            if (credentials != null)
-            {
-                mainHandler = new AuthenticationHandler(
-                    credentials.UserId,
-                    credentials.Key,
-                    credentials.Secret,
-                    mainHandler);
-            }
-
-            _client = new HttpClient(mainHandler)
-            {
-                BaseAddress = new Uri("https://www.bitstamp.net/api/v2/")
-            };
         }
 
-        public async Task<IReadOnlyCollection<WalletBalanceModel>> Balance()
+        public async Task<IReadOnlyCollection<WalletBalanceModel>> GetBalanceAsync()
         {
-            using (var msg = await _client.PostAsync("balance/", EmptyRequest()))
-            {
-                var json = await ReadAsJson(msg);
+            JToken data = await GetDataAsync("balance/", _httpClientFactory.GetClient(_credentials, InternalApiKey));
 
-                if (!(json is JObject obj))
+            if (!(data is JObject obj))
+                throw new BitstampApiException($"Expected Json Object, got {data.Type}");
+
+            var available = GetBalances(obj, "available");
+            var balance = GetBalances(obj, "balance");
+            var reserved = GetBalances(obj, "reserved");
+
+            var currencies = new HashSet<string>(
+                available.Keys
+                    .Concat(balance.Keys)
+                    .Concat(reserved.Keys));
+
+            return currencies
+                .Select(x => new WalletBalanceModel
                 {
-                    throw new BitstampApiException($"Expected Json Object, got {json.Type}");
-                }
-
-                var available = GetBalances(obj, "available");
-                var balance = GetBalances(obj, "balance");
-                var reserved = GetBalances(obj, "reserved");
-
-                var currencies = new HashSet<string>(
-                    available.Keys
-                        .Concat(balance.Keys)
-                        .Concat(reserved.Keys));
-
-
-                return currencies
-                    .Select(x => new WalletBalanceModel
-                    {
-                        Asset = x,
-                        Balance = balance.GetValueOrDefault(x),
-                        Reserved = reserved.GetValueOrDefault(x)
-                    })
-                    .ToArray();
-            }
+                    Asset = x,
+                    Balance = balance.GetValueOrDefault(x),
+                    Reserved = reserved.GetValueOrDefault(x)
+                })
+                .ToArray();
         }
 
-        private static IReadOnlyDictionary<string, decimal> GetBalances(JObject jObject, string suffix)
+        public async Task<IReadOnlyCollection<ShortOrder>> GetOpenOrdersAsync()
         {
-            var ending = $"_{suffix}";
+            JToken data = await GetDataAsync("open_orders/all/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey));
 
-            return jObject
-                .Cast<KeyValuePair<string, JToken>>()
+            return data.ToObject<IReadOnlyCollection<ShortOrder>>();
+        }
+
+        public async Task<PlaceOrderResponse> CreateBuyLimitOrderAsync(PlaceOrderCommand order)
+        {
+            JToken data = await GetDataAsync($"buy/{WebUtility.UrlEncode(order.Asset)}/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey),
+                new Dictionary<string, string>
+                {
+                    {"amount", order.Amount.ToString(CultureInfo.InvariantCulture)},
+                    {"price", order.Price.ToString(CultureInfo.InvariantCulture)}
+                });
+
+            return data.ToObject<PlaceOrderResponse>();
+        }
+
+        public async Task<PlaceOrderResponse> CreateSellLimitOrderAsync(PlaceOrderCommand order)
+        {
+            JToken data = await GetDataAsync($"sell/{WebUtility.UrlEncode(order.Asset)}/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey),
+                new Dictionary<string, string>
+                {
+                    {"amount", order.Amount.ToString(CultureInfo.InvariantCulture)},
+                    {"price", order.Price.ToString(CultureInfo.InvariantCulture)}
+                });
+
+            return data.ToObject<PlaceOrderResponse>();
+        }
+
+        public async Task<OrderStatusResponse> GetOrderStatusAsync(string id)
+        {
+            JToken data = await GetDataAsync("order_status/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey),
+                new Dictionary<string, string>
+                {
+                    {"id", id}
+                });
+
+            return data.ToObject<OrderStatusResponse>();
+        }
+
+        public async Task<CancelOrderResponse> CancelOrderAsync(string requestOrderId)
+        {
+            JToken data = await GetDataAsync("cancel_order/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey),
+                new Dictionary<string, string>
+                {
+                    {"id", requestOrderId}
+                });
+
+            return data.ToObject<CancelOrderResponse>();
+        }
+
+        public async Task<TransferResult> TransferSubToMainAsync(string subAccount, decimal amount, string currency)
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"currency", currency}
+            };
+
+            if (!string.IsNullOrEmpty(subAccount))
+                parameters.Add("subAccount", subAccount);
+
+            JToken data = await GetDataAsync("transfer-to-main/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey), parameters);
+
+            return data.ToObject<TransferResult>();
+        }
+
+        public async Task<TransferResult> TransferMainToSubAsync(string subAccount, decimal amount, string currency)
+        {
+            JToken data = await GetDataAsync("transfer-from-main/",
+                _httpClientFactory.GetClient(_credentials, InternalApiKey), new Dictionary<string, string>
+                {
+                    {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                    {"currency", currency},
+                    {"subAccount", subAccount}
+                });
+
+            return data.ToObject<TransferResult>();
+        }
+
+        public async Task<IReadOnlyCollection<UnconfirmedBitcoinDeposit>> GetUnconfirmedBitcoinDepositsAsync()
+        {
+            JToken data = await GetDataAsync("unconfirmed_btc/",
+                _httpClientFactory.GetClientV1(_credentials, InternalApiKey));
+
+            return JsonConvert.DeserializeObject<List<UnconfirmedBitcoinDeposit>>(data.ToString());
+        }
+
+        public async Task<IReadOnlyCollection<Withdrawal>> GetWithdrawalRequestsAsync(DateTime fromDate)
+        {
+            int totalSeconds = (int) (DateTime.UtcNow - fromDate).TotalSeconds;
+
+            if (totalSeconds > 50000000)
+                totalSeconds = 50000000;
+
+            if (totalSeconds <= 0)
+                totalSeconds = 86400;
+
+            JToken data = await GetDataAsync("withdrawal-requests/",
+                _httpClientFactory.GetClientV1(_credentials, InternalApiKey), new Dictionary<string, string>
+                {
+                    {"timedelta", totalSeconds.ToString(CultureInfo.InvariantCulture)}
+                });
+
+            return JsonConvert.DeserializeObject<List<Withdrawal>>(data.ToString());
+        }
+
+        public Task<string> GetBitcoinDepositAddressAsync()
+            => GetAddressAsync("bitcoin_deposit_address/", _httpClientFactory.GetClientV1(_credentials, InternalApiKey),
+                false);
+
+        public Task<string> GetLitecoinDepositAddressAsync()
+            => GetAddressAsync("ltc_address/", _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        public Task<string> GetEthDepositAddressAsync()
+            => GetAddressAsync("eth_address/", _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        public Task<string> GetXrpDepositAddressAsync()
+            => GetAddressAsync("xrp_address/", _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        public Task<string> GetBchDepositAddressAsync()
+            => GetAddressAsync("bch_address/", _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        public Task<WithdrawalId> CreateBitcoinWithdrawalAsync(decimal amount, string address, bool supportBitGo)
+            => CreateWithdrawalAsync("bitcoin_withdrawal/", amount, address,
+                _httpClientFactory.GetClientV1(_credentials, InternalApiKey),
+                new Tuple<string, string>("instant", supportBitGo ? "1" : "0"));
+
+        public Task<WithdrawalId> CreateLitecoinWithdrawalAsync(decimal amount, string address)
+            => CreateWithdrawalAsync("ltc_withdrawal/", amount, address,
+                _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        public Task<WithdrawalId> CreateEthWithdrawalAsync(decimal amount, string address)
+            => CreateWithdrawalAsync("eth_withdrawal/", amount, address,
+                _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        public Task<WithdrawalId> CreateXrpWithdrawalAsync(decimal amount, string address,
+            string destinationTag = null)
+        {
+            if (!string.IsNullOrEmpty(destinationTag))
+            {
+                return CreateWithdrawalAsync("xrp_withdrawal/", amount, address,
+                    _httpClientFactory.GetClient(_credentials, InternalApiKey),
+                    new Tuple<string, string>("destination_tag", destinationTag));
+            }
+
+            return CreateWithdrawalAsync("xrp_withdrawal/", amount, address,
+                _httpClientFactory.GetClient(_credentials, InternalApiKey));
+        }
+
+        public Task<WithdrawalId> CreateBchWithdrawalAsync(decimal amount, string address)
+            => CreateWithdrawalAsync("bch_withdrawal/", amount, address,
+                _httpClientFactory.GetClient(_credentials, InternalApiKey));
+
+        private static async Task<string> GetAddressAsync(string path, HttpClient client, bool parseResponse = true)
+        {
+            JToken data = await GetDataAsync(path, client);
+
+            if (!parseResponse)
+                return data.ToString();
+
+            WalletAddress walletAddress = JsonConvert.DeserializeObject<WalletAddress>(data.ToString());
+
+            return walletAddress.Address;
+        }
+
+        private static async Task<WithdrawalId> CreateWithdrawalAsync(string path, decimal amount, string address,
+            HttpClient client, params Tuple<string, string>[] values)
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                {"amount", amount.ToString(CultureInfo.InvariantCulture)},
+                {"address", address}
+            };
+
+            foreach (Tuple<string, string> value in values)
+                parameters.Add(value.Item1, value.Item2);
+
+            JToken data = await GetDataAsync(path, client, parameters);
+
+            return JsonConvert.DeserializeObject<WithdrawalId>(data.ToString());
+        }
+
+        private static IReadOnlyDictionary<string, decimal> GetBalances(JObject data, string suffix)
+        {
+            string ending = $"_{suffix}";
+
+            return data.Cast<KeyValuePair<string, JToken>>()
                 .Where(x => x.Key.EndsWith(ending))
                 .Select(x =>
                 {
-                    var convertable = true;
+                    bool convertible = true;
+
                     decimal balance = 0;
+
                     try
                     {
                         balance = x.Value.Value<decimal>();
                     }
                     catch
                     {
-                        convertable = false;
+                        convertible = false;
                     }
 
-                    return (x.Key.Substring(0, x.Key.Length - ending.Length), convertable, balance);
+                    return (x.Key.Substring(0, x.Key.Length - ending.Length), convertible, balance);
                 })
                 .Where(x => x.Item2)
                 .ToDictionary(x => x.Item1, x => x.Item3);
         }
 
-        private static async Task<JToken> ReadAsJson(HttpResponseMessage msg)
+        private static async Task<JToken> GetDataAsync(string path, HttpClient client,
+            Dictionary<string, string> values = null)
         {
+            FormUrlEncodedContent content = new FormUrlEncodedContent(values ?? new Dictionary<string, string>());
 
-            if (msg.StatusCode != HttpStatusCode.Forbidden)
+            using (HttpResponseMessage responseMessage = await client.PostAsync(path, content))
             {
-                msg.EnsureSuccessStatusCode();
+                return await ReadAsJsonAsync(responseMessage);
             }
+        }
 
-            var json = await msg.Content.ReadAsAsync<JToken>();
+        private static async Task<JToken> ReadAsJsonAsync(HttpResponseMessage responseMessage)
+        {
+            if (responseMessage.StatusCode != HttpStatusCode.Forbidden)
+                responseMessage.EnsureSuccessStatusCode();
 
-            if (json is JObject obj)
+            var json = await responseMessage.Content.ReadAsAsync<JToken>();
+
+            if (json is JObject data)
             {
-                var errorMessage = CheckErrorField(obj) ?? CheckStatusField(obj);
+                string errorMessage = GetErrorMessage(data);
 
                 if (errorMessage != null)
                 {
-                    if (msg.StatusCode == HttpStatusCode.Forbidden)
-                    {
+                    if (responseMessage.StatusCode == HttpStatusCode.Forbidden)
                         throw new BitstampApiException(errorMessage);
-                    }
 
                     if (IsNotFoundError(errorMessage))
-                    {
                         throw new OrderNotFoundException(errorMessage);
-                    }
 
                     if (IsBalanceError(errorMessage))
-                    {
                         throw new InsufficientBalanceException(errorMessage);
-                    }
 
-                    if (CheckOrderSizeError(errorMessage))
-                    {
+                    if (IsOrderSizeError(errorMessage))
                         throw new VolumeTooSmallException(errorMessage);
-                    }
 
-                    if (CheckOrderPriceError(errorMessage))
-                    {
+                    if (IsOrderPriceError(errorMessage))
                         throw new InvalidOrderPriceException(errorMessage);
-                    }
 
-                    if (CheckOrderIdError(errorMessage))
-                    {
+                    if (IsOrderIdError(errorMessage))
                         throw new InvalidOrderIdException();
-                    }
 
                     throw new BitstampApiException(errorMessage);
                 }
-
-                return json;
             }
-            else
+
+            return json;
+        }
+
+        private static string GetErrorMessage(JObject data)
+        {
+            string errorMessage = null;
+
+            if (data.ContainsKey("error"))
             {
-                return json;
+                var error = data["error"].Value<string>();
+
+                if (!string.IsNullOrWhiteSpace(error))
+                    errorMessage = error;
             }
-        }
-
-        private static bool CheckOrderIdError(string errorMessage)
-        {
-            return errorMessage.StartsWith("Invalid order id", StringComparison.InvariantCultureIgnoreCase);
-        }
-
-        private static bool CheckOrderPriceError(string errorMessage)
-        {
-            var errors = new[]
+            else if (data.ContainsKey("status") && data["status"].Value<string>() == "error")
             {
-                "Ensure that there are no more than",
-                "Price is more than"
-            };
+                errorMessage = GetErrors(data["reason"]).FirstOrDefault();
+            }
 
-            return errors.Any(errorMessage.StartsWith);
-        }
-
-        private static bool CheckOrderSizeError(string errorMessage)
-        {
-            var errors = new[]
-            {
-                "Minimum order size is"
-            };
-
-            return errors.Any(errorMessage.StartsWith);
+            return errorMessage;
         }
 
         private static bool IsNotFoundError(string errorMessage)
@@ -207,21 +357,34 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             };
 
             return patterns.Any(x => Regex.IsMatch(errorMessage, x));
-
         }
 
-        private static string CheckStatusField(JObject obj)
+        private static bool IsOrderSizeError(string errorMessage)
         {
-            if (obj.ContainsKey("status") && obj["status"].Value<string>() == "error")
-                return GetErrors(obj["reason"]).FirstOrDefault();
-            return null;
+            return errorMessage.StartsWith("Minimum order size is", StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        private static bool IsOrderPriceError(string errorMessage)
+        {
+            var errors = new[]
+            {
+                "Ensure that there are no more than",
+                "Price is more than"
+            };
+
+            return errors.Any(errorMessage.StartsWith);
+        }
+
+        private static bool IsOrderIdError(string errorMessage)
+        {
+            return errorMessage.StartsWith("Invalid order id", StringComparison.InvariantCultureIgnoreCase);
         }
 
         private static IEnumerable<string> GetErrors(JToken jToken)
         {
-            if (jToken is JObject obj)
+            if (jToken is JObject data)
             {
-                foreach (var s in obj)
+                foreach (var s in data)
                 {
                     if (s.Value is JArray arr)
                     {
@@ -237,83 +400,6 @@ namespace Lykke.Service.BitstampAdapter.Services.BitstampClient
             }
 
             yield return jToken.ToString();
-        }
-
-        private static string CheckErrorField(JObject obj)
-        {
-            if (!obj.ContainsKey("error")) return null;
-
-            var error = obj["error"].Value<string>();
-
-            if (!string.IsNullOrWhiteSpace(error))
-            {
-                return error;
-            }
-
-            return null;
-        }
-
-        public async Task<IReadOnlyCollection<ShortOrder>> OpenOrders()
-        {
-            using (var msg = await _client.PostAsync("open_orders/all/", EmptyRequest()))
-            {
-                var json = await ReadAsJson(msg);
-                return json.ToObject<IReadOnlyCollection<ShortOrder>>();
-            }
-        }
-
-        public async Task<PlaceOrderResponse> BuyLimitOrder(PlaceOrderCommand order)
-        {
-            using (var msg = await _client.PostAsync($"buy/{WebUtility.UrlEncode(order.Asset)}/",
-                new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    {"amount", order.Amount.ToString(CultureInfo.InvariantCulture)},
-                    {"price", order.Price.ToString(CultureInfo.InvariantCulture)}
-                })))
-            {
-                var json = await ReadAsJson(msg);
-                return json.ToObject<PlaceOrderResponse>();
-            }
-        }
-
-        public async Task<PlaceOrderResponse> SellLimitOrder(PlaceOrderCommand order)
-        {
-            using (var msg = await _client.PostAsync($"sell/{WebUtility.UrlEncode(order.Asset)}/",
-                new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    {"amount", order.Amount.ToString(CultureInfo.InvariantCulture)},
-                    {"price", order.Price.ToString(CultureInfo.InvariantCulture)}
-                })))
-            {
-                var json = await ReadAsJson(msg);
-                return json.ToObject<PlaceOrderResponse>();
-            }
-        }
-
-        public async Task<OrderStatusResponse> OrderStatus(string id)
-        {
-            using (var msg = await _client.PostAsync("order_status/",
-                new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    {"id", id }
-                })))
-            {
-                var json = await ReadAsJson(msg);
-                return json.ToObject<OrderStatusResponse>();
-            }
-        }
-
-        public async Task<CancelOrderResponse> CancelOrder(string requestOrderId)
-        {
-            using (var msg = await _client.PostAsync("cancel_order/",
-                new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    {"id", requestOrderId }
-                })))
-            {
-                var json = await ReadAsJson(msg);
-                return json.ToObject<CancelOrderResponse>();
-            }
         }
     }
 }

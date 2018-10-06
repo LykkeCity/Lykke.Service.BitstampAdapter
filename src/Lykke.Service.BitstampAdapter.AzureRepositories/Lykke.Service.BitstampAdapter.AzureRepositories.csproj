@@ -6,15 +6,13 @@
     <Version>1.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Lykke.AzureStorage" Version="8.10.0" />
+    <PackageReference Include="Lykke.AzureStorage" Version="8.11.0" />
+    <PackageReference Include="Lykke.Common.ExchangeAdapter.Server" Version="4.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Lykke.Service.BitstampAdapter.Core\Lykke.Service.BitstampAdapter.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Lykke.Common.ExchangeAdapter, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\..\..\..\..\.nuget\packages\lykke.common.exchangeadapter\2.0.0\lib\netcoreapp2.1\Lykke.Common.ExchangeAdapter.dll</HintPath>
-    </Reference>
     <Reference Include="System.Reactive, Version=4.0.0.0, Culture=neutral, PublicKeyToken=94bc3704cddfc263">
       <HintPath>..\..\..\..\..\.nuget\packages\system.reactive\4.0.0\lib\netstandard2.0\System.Reactive.dll</HintPath>
     </Reference>
